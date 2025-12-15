@@ -1,85 +1,215 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../providers/receipt_capture_provider.dart';
+import '../../widgets/receipt_capture_widgets.dart';
 
-class ReceiptCapturePage extends ConsumerWidget {
+class ReceiptCapturePage extends ConsumerStatefulWidget {
   const ReceiptCapturePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan Receipt'),
+  ConsumerState<ReceiptCapturePage> createState() => _ReceiptCapturePageState();
+}
+
+class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleCameraCapture() async {
+    await ref.read(receiptCaptureProvider.notifier).captureFromCamera();
+  }
+
+  Future<void> _handleGalleryPick() async {
+    await ref.read(receiptCaptureProvider.notifier).pickFromGallery();
+  }
+
+  Future<void> _handleRetake() async {
+    await ref.read(receiptCaptureProvider.notifier).retakeImage();
+  }
+
+  void _handleConfirm() {
+    final imagePath = ref.read(receiptCaptureProvider.notifier).confirmAndGetPath();
+    
+    if (imagePath != null) {
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
             children: [
-              Icon(
-                Icons.camera_alt_outlined,
-                size: 120,
-                color: theme.colorScheme.primary.withOpacity(0.5),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Capture Receipt',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Take a photo of your receipt and let AI extract the details automatically',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-              const SizedBox(height: 48),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implement camera functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Camera feature coming soon!'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.camera),
-                label: const Text('Take Photo'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () {
-                  // TODO: Implement gallery picker
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Gallery feature coming soon!'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.photo_library),
-                label: const Text('Choose from Gallery'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                ),
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text('Receipt image captured successfully!'),
               ),
             ],
           ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
+      );
+
+      // TODO: In future, navigate to expense form with image
+      // For now, just reset
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          ref.read(receiptCaptureProvider.notifier).reset();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final captureState = ref.watch(receiptCaptureProvider);
+
+    // Listen for errors
+    ref.listen(receiptCaptureProvider, (previous, next) {
+      if (next.hasError && next.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text(next.errorMessage!)),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {
+                ref.read(receiptCaptureProvider.notifier).clearError();
+              },
+            ),
+          ),
+        );
+      }
+    });
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Scan Receipt'),
+        elevation: 0,
+        actions: captureState.hasImage
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _handleRetake,
+                  tooltip: 'Discard',
+                ),
+              ]
+            : null,
       ),
+      body: Stack(
+        children: [
+          // Main content
+          FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildContent(context, captureState),
+                ),
+              ),
+            ),
+          ),
+
+          // Loading overlay
+          if (captureState.isCapturing)
+            const LoadingOverlay(message: 'Opening...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, ReceiptCaptureState captureState) {
+    if (captureState.hasImage) {
+      // Show preview
+      return ReceiptImagePreview(
+        imagePath: captureState.imagePath!,
+        onRetake: _handleRetake,
+        onConfirm: _handleConfirm,
+      );
+    }
+
+    // Show capture options
+    return Column(
+      children: [
+        Expanded(
+          child: EmptyStateWidget(
+            icon: Icons.camera_alt_outlined,
+            title: 'Capture Receipt',
+            subtitle:
+                'Take a photo of your receipt or choose from gallery to get started',
+          ),
+        ),
+        const SizedBox(height: 24),
+        CaptureButton(
+          icon: Icons.camera_alt,
+          label: 'Take Photo',
+          onPressed: _handleCameraCapture,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(height: 16),
+        CaptureButton(
+          icon: Icons.photo_library,
+          label: 'Choose from Gallery',
+          onPressed: _handleGalleryPick,
+          color: Theme.of(context).colorScheme.secondary,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'The receipt will be processed automatically',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }
