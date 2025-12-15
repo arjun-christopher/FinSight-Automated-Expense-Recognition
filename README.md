@@ -234,6 +234,54 @@ adb install build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 flutter run --release
 ```
 
+## 🎨 Branding & Logo Integration
+
+FinSight features a complete branding system with animated splash screens and consistent logo placement.
+
+### Features
+- ✨ **Animated Splash Screen**: 4-layer animation with fade, scale, gradient rotation, and ripple effects
+- 🎯 **Branded UI Components**: `BrandedAppBar`, `AppLogo`, `BrandedHeader` widgets
+- 📱 **App Icons**: Adaptive icons for Android, full icon set for iOS
+- 🏠 **Widget Branding**: Logo in Android home screen widget
+- 🎨 **Color Scheme**: Green (#2E7D32) to Cyan (#00BCD4) gradient
+
+### Quick Start
+```dart
+// Use branded app bar
+BrandedAppBar(title: 'Dashboard')
+
+// Display logo anywhere
+AppLogo(size: 48, showText: true, animate: true)
+
+// Add branded header
+BrandedHeader(title: 'Welcome', showLogo: true)
+```
+
+### Documentation
+- 🎨 [Logo Setup Guide](LOGO_PLACEMENT_GUIDE.md) - Asset placement instructions
+- 📘 [Branding Integration](BRANDING_INTEGRATION.md) - Complete branding system (2000+ lines)
+- ⚡ [Quick Reference](BRANDING_QUICK_REF.md) - Code snippets
+- 🖼️ [Visual Guide](LOGO_VISUAL_GUIDE.md) - Where logo appears
+- 📝 [Task Summary](TASK_18_SUMMARY.md) - Implementation details
+
+### Generate Icons
+```bash
+# Place logo files in assets/icons/ and assets/images/, then:
+flutter pub get
+flutter pub run flutter_launcher_icons
+flutter pub run flutter_native_splash:create
+```
+
+## 📚 Complete Documentation
+
+For a complete guide to all documentation, see [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md).
+
+**Quick Links:**
+- 🎯 [Documentation Index](DOCUMENTATION_INDEX.md) - Find any doc
+- 📖 Feature modules (10 comprehensive guides)
+- 🚀 Quick start guides (Auth, Export, Notifications)
+- 💻 Code examples in `lib/examples/`
+
 ## License
 
 Copyright © 2025 FinSight. All rights reserved.

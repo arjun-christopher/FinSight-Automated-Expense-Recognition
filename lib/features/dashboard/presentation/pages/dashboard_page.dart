@@ -6,6 +6,7 @@ import '../../../../core/constants/expense_constants.dart';
 import '../../../budget/providers/budget_providers.dart';
 import '../../../budget/presentation/pages/budget_list_page.dart';
 import '../../../budget/presentation/widgets/budget_alert_banner.dart';
+import '../../../../core/widgets/branded_widgets.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -16,8 +17,8 @@ class DashboardPage extends ConsumerWidget {
     final dashboardState = ref.watch(dashboardProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
+      appBar: BrandedAppBar(
+        title: 'Dashboard',
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

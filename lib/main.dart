@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/theme_manager.dart';
+import 'core/widgets/animated_splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: FinSightApp()));
 }
+
+/// Provider to track if splash screen has been shown
+final splashCompleteProvider = StateProvider<bool>((ref) => false);
 
 class FinSightApp extends ConsumerWidget {
   const FinSightApp({super.key});
@@ -15,14 +19,28 @@ class FinSightApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final router = ref.watch(appRouterProvider);
+    final splashComplete = ref.watch(splashCompleteProvider);
 
-    return MaterialApp.router(
+    return MaterialApp(
       title: 'FinSight',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      routerConfig: router,
+      home: splashComplete
+          ? MaterialApp.router(
+              title: 'FinSight',
+              debugShowCheckedModeBanner: false,
+              themeMode: themeMode,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              routerConfig: router,
+            )
+          : AnimatedSplashScreen(
+              onComplete: () {
+                ref.read(splashCompleteProvider.notifier).state = true;
+              },
+            ),
     );
   }
 }

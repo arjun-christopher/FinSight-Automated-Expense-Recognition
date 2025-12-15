@@ -6,7 +6,7 @@
     android:padding="16dp"
     android:background="@drawable/widget_background">
 
-    <!-- Header -->
+    <!-- Header with Logo -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -15,20 +15,22 @@
         android:paddingBottom="8dp">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_widget_logo"
-            android:contentDescription="@string/app_name" />
+            android:id="@+id/widget_logo"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@mipmap/ic_launcher"
+            android:contentDescription="FinSight Logo"
+            android:scaleType="fitCenter" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/widget_title"
-            android:textSize="14sp"
+            android:text="FinSight"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
-            android:paddingStart="8dp"
+            android:paddingStart="10dp"
             android:paddingEnd="8dp" />
 
         <TextView

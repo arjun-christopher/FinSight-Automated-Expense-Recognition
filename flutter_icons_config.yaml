@@ -1,0 +1,45 @@
+# App Icon Configuration
+# Place your app icon at: assets/icons/finsight_icon.png (1024x1024)
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/finsight_icon.png"
+  adaptive_icon_background: "#2E7D32"
+  adaptive_icon_foreground: "assets/icons/finsight_icon.png"
+  
+  # Platform-specific icons
+  android:
+    generate: true
+    image_path: "assets/icons/finsight_icon.png"
+    adaptive_icon_background: "#2E7D32"
+    adaptive_icon_foreground: "assets/icons/finsight_icon.png"
+  
+  ios:
+    generate: true
+    image_path: "assets/icons/finsight_icon.png"
+
+# Splash Screen Configuration
+flutter_native_splash:
+  color: "#2E7D32"
+  image: assets/icons/finsight_logo_splash.png
+  color_dark: "#1E1E1E"
+  image_dark: assets/icons/finsight_logo_splash.png
+  
+  android_12:
+    image: assets/icons/finsight_icon.png
+    icon_background_color: "#2E7D32"
+    icon_background_color_dark: "#1E1E1E"
+  
+  android: true
+  ios: true
+  web: false
+  
+  android_gravity: center
+  ios_content_mode: center
+  fullscreen: true
+  
+  # Brand image at bottom
+  branding: assets/images/finsight_branding.png
+  branding_mode: bottom
+  branding_dark: assets/images/finsight_branding.png
