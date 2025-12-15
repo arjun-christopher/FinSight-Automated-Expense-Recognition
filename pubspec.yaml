@@ -31,6 +31,9 @@ dependencies:
   # ML Kit OCR
   google_mlkit_text_recognition: ^0.11.0
   
+  # HTTP Client
+  http: ^1.1.0
+  
   # Charts & Analytics
   fl_chart: ^0.65.0
   
