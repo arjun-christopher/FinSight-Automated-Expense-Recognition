@@ -1,0 +1,8 @@
+# This file contains sensitive signing information for release builds
+# DO NOT commit this file to version control!
+# Copy this template to 'key.properties' and fill in your values
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=finsight-key
+storeFile=/path/to/your/keystore.jks

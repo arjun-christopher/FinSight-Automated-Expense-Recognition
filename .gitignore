@@ -68,3 +68,16 @@ firebase_app_id_file.json
 .env
 .env.local
 .env.*.local
+
+# Signing keys (CRITICAL - Never commit!)
+android/key.properties
+android/app/upload-keystore.jks
+android/app/*.jks
+android/app/*.keystore
+*.keystore
+*.jks
+
+# iOS signing
+ios/Runner.xcodeproj/project.pbxproj.resolved
+ios/Runner.xcarchive
+ios/exportOptions.plist

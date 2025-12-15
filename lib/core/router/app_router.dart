@@ -10,6 +10,7 @@ import '../../features/receipt/presentation/pages/receipt_detail_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../services/ocr_workflow_service.dart';
 import '../widgets/main_navigation.dart';
+import '../animations/app_animations.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -57,31 +58,72 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      // Full screen routes (outside shell)
+      // Full screen routes (outside shell) with animations
       GoRoute(
         path: '/expense-confirmation',
         name: 'expense-confirmation',
         pageBuilder: (context, state) {
           final result = state.extra as WorkflowResult;
-          return MaterialPage(
+          return CustomTransitionPage(
+            key: state.pageKey,
             child: ExpenseConfirmationPage(result: result),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                  ),
+                  child: child,
+                ),
+              );
+            },
           );
         },
       ),
       GoRoute(
         path: '/receipt/capture',
         name: 'receipt-capture-fullscreen',
-        pageBuilder: (context, state) => const MaterialPage(
-          child: ReceiptCapturePage(),
-        ),
+        pageBuilder: (context, state) {
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: const ReceiptCapturePage(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 1.0),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                ),
+                child: child,
+              );
+            },
+          );
+        },
       ),
       GoRoute(
         path: '/receipt/detail/:id',
         name: 'receipt-detail',
         pageBuilder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return MaterialPage(
+          return CustomTransitionPage(
+            key: state.pageKey,
             child: ReceiptDetailPage(receiptId: id),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                  ),
+                  child: child,
+                ),
+              );
+            },
           );
         },
       ),
