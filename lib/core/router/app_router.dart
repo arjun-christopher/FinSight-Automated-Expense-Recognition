@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/expenses/presentation/pages/add_expense_page.dart';
+import '../../features/expenses/presentation/pages/expense_confirmation_page.dart';
 import '../../features/receipt/presentation/pages/receipt_capture_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../services/ocr_workflow_service.dart';
 import '../widgets/main_navigation.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -45,6 +47,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      // Full screen routes (outside shell)
+      GoRoute(
+        path: '/expense-confirmation',
+        name: 'expense-confirmation',
+        pageBuilder: (context, state) {
+          final result = state.extra as WorkflowResult;
+          return MaterialPage(
+            child: ExpenseConfirmationPage(result: result),
+          );
+        },
       ),
     ],
   );

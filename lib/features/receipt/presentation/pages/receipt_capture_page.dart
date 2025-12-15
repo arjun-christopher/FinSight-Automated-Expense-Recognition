@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/receipt_capture_provider.dart';
 import '../../widgets/receipt_capture_widgets.dart';
+import '../../../../services/ocr_workflow_service.dart';
 
 class ReceiptCapturePage extends ConsumerStatefulWidget {
   const ReceiptCapturePage({super.key});
@@ -63,37 +64,65 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
     await ref.read(receiptCaptureProvider.notifier).retakeImage();
   }
 
-  void _handleConfirm() {
+  Future<void> _handleConfirm() async {
     final imagePath = ref.read(receiptCaptureProvider.notifier).confirmAndGetPath();
     
-    if (imagePath != null) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text('Receipt image captured successfully!'),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
+    if (imagePath == null) return;
+
+    // Show processing dialog
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const ProcessingDialog(),
+    );
+
+    try {
+      // Create workflow service
+      final workflow = OcrWorkflowFactory.createMockWorkflow();
+
+      // Process receipt through workflow
+      final result = await workflow.processReceipt(
+        imagePath: imagePath,
+        useClassifier: true,
+        onStepComplete: (step) {
+          debugPrint('Completed step: ${step.name}');
+        },
       );
 
-      // TODO: In future, navigate to expense form with image
-      // For now, just reset
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          ref.read(receiptCaptureProvider.notifier).reset();
-        }
-      });
+      if (!mounted) return;
+      
+      // Close processing dialog
+      Navigator.of(context).pop();
+
+      if (result.success) {
+        // Navigate to confirmation screen
+        context.push('/expense-confirmation', extra: result);
+        
+        // Reset capture state
+        ref.read(receiptCaptureProvider.notifier).reset();
+      } else {
+        // Show error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Processing failed: ${result.errorMessage ?? "Unknown error"}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      // Close processing dialog
+      Navigator.of(context).pop();
+      
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error processing receipt: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

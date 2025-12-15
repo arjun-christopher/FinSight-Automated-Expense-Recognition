@@ -260,3 +260,104 @@ class LoadingOverlay extends StatelessWidget {
     );
   }
 }
+
+class ProcessingDialog extends StatefulWidget {
+  const ProcessingDialog({super.key});
+
+  @override
+  State<ProcessingDialog> createState() => _ProcessingDialogState();
+}
+
+class _ProcessingDialogState extends State<ProcessingDialog>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  int _currentStep = 0;
+  
+  final List<String> _steps = [
+    'Scanning receipt...',
+    'Extracting text...',
+    'Parsing information...',
+    'Classifying expense...',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    )..repeat();
+    
+    // Cycle through steps
+    Future.delayed(const Duration(milliseconds: 800), _nextStep);
+  }
+
+  void _nextStep() {
+    if (mounted && _currentStep < _steps.length - 1) {
+      setState(() {
+        _currentStep++;
+      });
+      Future.delayed(const Duration(milliseconds: 800), _nextStep);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RotationTransition(
+              turns: _controller,
+              child: Icon(
+                Icons.camera_alt,
+                size: 48,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Processing Receipt',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                _steps[_currentStep],
+                key: ValueKey(_currentStep),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
+                    ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            LinearProgressIndicator(
+              value: (_currentStep + 1) / _steps.length,
+              backgroundColor: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withOpacity(0.1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
