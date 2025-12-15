@@ -28,9 +28,14 @@ class _MainNavigationState extends State<MainNavigation> {
       label: 'Add Expense',
     ),
     NavigationDestination(
+      icon: Icon(Icons.receipt_long_outlined),
+      selectedIcon: Icon(Icons.receipt_long),
+      label: 'Receipts',
+    ),
+    NavigationDestination(
       icon: Icon(Icons.camera_alt_outlined),
       selectedIcon: Icon(Icons.camera_alt),
-      label: 'Scan Receipt',
+      label: 'Scan',
     ),
     NavigationDestination(
       icon: Icon(Icons.settings_outlined),
@@ -42,6 +47,7 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<String> _routes = [
     '/dashboard',
     '/add-expense',
+    '/receipts',
     '/receipt-capture',
     '/settings',
   ];

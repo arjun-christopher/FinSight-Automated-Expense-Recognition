@@ -30,5 +30,20 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Expense Widget Provider -->
+        <receiver
+            android:name=".ExpenseWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.finsight.finsight.WIDGET_CLICK" />
+                <action android:name="com.finsight.finsight.ADD_EXPENSE" />
+                <action android:name="com.finsight.finsight.REFRESH_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/expense_widget_info" />
+        </receiver>
     </application>
 </manifest>

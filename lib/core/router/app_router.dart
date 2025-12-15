@@ -5,6 +5,8 @@ import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/expenses/presentation/pages/add_expense_page.dart';
 import '../../features/expenses/presentation/pages/expense_confirmation_page.dart';
 import '../../features/receipt/presentation/pages/receipt_capture_page.dart';
+import '../../features/receipt/presentation/pages/receipt_list_page.dart';
+import '../../features/receipt/presentation/pages/receipt_detail_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../services/ocr_workflow_service.dart';
 import '../widgets/main_navigation.dart';
@@ -40,6 +42,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/receipts',
+            name: 'receipts',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ReceiptListPage(),
+            ),
+          ),
+          GoRoute(
             path: '/settings',
             name: 'settings',
             pageBuilder: (context, state) => const NoTransitionPage(
@@ -56,6 +65,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final result = state.extra as WorkflowResult;
           return MaterialPage(
             child: ExpenseConfirmationPage(result: result),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/receipt/capture',
+        name: 'receipt-capture-fullscreen',
+        pageBuilder: (context, state) => const MaterialPage(
+          child: ReceiptCapturePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/receipt/detail/:id',
+        name: 'receipt-detail',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return MaterialPage(
+            child: ReceiptDetailPage(receiptId: id),
           );
         },
       ),
