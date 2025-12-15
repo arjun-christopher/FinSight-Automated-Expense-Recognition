@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../widgets/chart_widgets.dart';
 import '../../../../core/constants/expense_constants.dart';
+import '../../../budget/providers/budget_providers.dart';
+import '../../../budget/presentation/pages/budget_list_page.dart';
+import '../../../budget/presentation/widgets/budget_alert_banner.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -43,8 +46,46 @@ class DashboardPage extends ConsumerWidget {
                     : ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
+                          // Budget Alerts (if any)
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final alertsAsync = ref.watch(budgetAlertsProvider);
+                              return alertsAsync.when(
+                                data: (alerts) {
+                                  if (alerts.isNotEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 16),
+                                      child: BudgetAlertBanner(alerts: alerts),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                                loading: () => const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                              );
+                            },
+                          ),
+
                           // Summary Cards
                           _buildSummaryCards(context, theme, dashboardState.stats!),
+                          const SizedBox(height: 16),
+
+                          // Budget Overview Card
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final healthAsync = ref.watch(budgetHealthSummaryProvider);
+                              return healthAsync.when(
+                                data: (health) {
+                                  if (health.totalCategories > 0) {
+                                    return _buildBudgetOverviewCard(context, theme, health);
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                                loading: () => const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                              );
+                            },
+                          ),
                           const SizedBox(height: 24),
 
                           // Category Pie Chart
@@ -86,6 +127,87 @@ class DashboardPage extends ConsumerWidget {
                       ),
       ),
     );
+  }
+
+  Widget _buildBudgetOverviewCard(
+    BuildContext context,
+    ThemeData theme,
+    health,
+  ) {
+    final color = _getHealthColor(health.overallHealth);
+
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BudgetListPage()),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Budget Status',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios, size: 16),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: health.overallPercentage / 100,
+                  minHeight: 8,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '\$${health.totalSpending.toStringAsFixed(0)} / \$${health.totalBudget.toStringAsFixed(0)}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  Text(
+                    '${health.overallPercentage.toStringAsFixed(0)}% used',
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getHealthColor(alertLevel) {
+    switch (alertLevel.toString()) {
+      case 'BudgetAlertLevel.healthy':
+        return Colors.green;
+      case 'BudgetAlertLevel.warning':
+        return Colors.orange;
+      case 'BudgetAlertLevel.exceeded':
+        return Colors.red;
+      default:
+        return Colors.green;
+    }
   }
 
   Widget _buildSummaryCards(BuildContext context, ThemeData theme, DashboardStats stats) {

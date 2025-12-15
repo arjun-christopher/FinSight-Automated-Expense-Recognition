@@ -74,21 +74,23 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE budgets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category TEXT NOT NULL UNIQUE,
-        amount REAL NOT NULL,
-        period TEXT NOT NULL,
-        start_date TEXT NOT NULL,
-        end_date TEXT,
-        alert_threshold REAL DEFAULT 0.8,
-        is_active INTEGER DEFAULT 1,
+        category TEXT NOT NULL,
+        monthly_limit REAL NOT NULL,
+        year INTEGER NOT NULL,
+        month INTEGER NOT NULL,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT,
+        UNIQUE(category, year, month)
       )
     ''');
 
-    // Create index for active budgets
+    // Create index for budget queries
     await db.execute('''
-      CREATE INDEX idx_budgets_active ON budgets(is_active)
+      CREATE INDEX idx_budgets_date ON budgets(year, month)
+    ''');
+    
+    await db.execute('''
+      CREATE INDEX idx_budgets_category ON budgets(category)
     ''');
   }
 
