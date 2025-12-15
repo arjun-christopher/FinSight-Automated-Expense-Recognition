@@ -49,6 +49,8 @@ dependencies:
   # File Operations
   pdf: ^3.10.7
   csv: ^5.1.1
+  share_plus: ^7.2.1
+  path_provider: ^2.1.1
   
   # Utilities
   intl: ^0.18.1
