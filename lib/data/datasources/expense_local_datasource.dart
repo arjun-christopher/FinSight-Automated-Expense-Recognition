@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
-import '../../models/expense.dart';
-import '../../database/database_helper.dart';
+import '../../core/models/expense.dart';
+import '../../core/database/database_helper.dart';
 
 class ExpenseLocalDataSource {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;

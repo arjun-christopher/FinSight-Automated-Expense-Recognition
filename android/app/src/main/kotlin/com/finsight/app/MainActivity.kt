@@ -1,4 +1,4 @@
-package com.finsight.finsight
+package com.finsight.app
 
 import android.content.Intent
 import android.os.Bundle
@@ -7,7 +7,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.finsight.finsight/widget"
+    private val CHANNEL = "com.finsight.app/widget"
     private var initialRoute: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {

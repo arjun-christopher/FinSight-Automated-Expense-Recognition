@@ -4,7 +4,7 @@ import 'dart:io' show Platform;
 /// Service for managing Android home screen widget
 /// Updates widget with today's spending information
 class AndroidWidgetService {
-  static const MethodChannel _channel = MethodChannel('com.finsight.finsight/widget');
+  static const MethodChannel _channel = MethodChannel('com.finsight.app/widget');
 
   /// Update the Android widget with today's spending data
   /// 

@@ -34,7 +34,7 @@ class OcrWorkflowService {
       // Step 1: OCR - Extract text from image
       onStepComplete?.call(WorkflowStep.ocr);
       final ocrResult = await ocrService.recognizeText(imagePath);
-      final ocrText = ocrResult.text;
+      final ocrText = ocrResult.rawText;
       
       if (ocrText.isEmpty) {
         throw WorkflowException(
@@ -62,7 +62,7 @@ class OcrWorkflowService {
         try {
           classification = await classifier!.classifyHybrid(
             merchantName: parsedReceipt.merchantName ?? 'Unknown',
-            description: parsedReceipt.items?.map((i) => i.description).join(', '),
+            description: parsedReceipt.items?.map((i) => i.name).join(', '),
             amount: parsedReceipt.totalAmount,
           );
         } catch (e) {
@@ -132,7 +132,7 @@ class OcrWorkflowService {
   Future<bool> validateImage(String imagePath) async {
     try {
       final ocrResult = await ocrService.recognizeText(imagePath);
-      return ocrResult.text.length > 20; // Minimum text threshold
+      return ocrResult.rawText.length > 20; // Minimum text threshold
     } catch (e) {
       return false;
     }
@@ -144,7 +144,7 @@ class OcrWorkflowService {
       final ocrResult = await ocrService.recognizeText(imagePath);
       
       // Quick parse to get key fields
-      final text = ocrResult.text;
+      final text = ocrResult.rawText;
       final lines = text.split('\n');
       
       // Try to find merchant name (usually in first few lines)
@@ -214,12 +214,11 @@ class WorkflowResult {
                classification?.category ?? 
                'Other',
       date: parsedReceipt!.date ?? DateTime.now(),
-      merchantName: parsedReceipt!.merchantName,
-      notes: notesOverride ?? 
-             parsedReceipt!.items?.map((i) => i.description).join(', '),
+      description: notesOverride ?? 
+             parsedReceipt!.items?.map((i) => i.name).join(', ') ??
+             parsedReceipt!.merchantName,
       paymentMethod: paymentMethodOverride ?? 
                     parsedReceipt!.paymentMethod,
-      receiptImagePath: imagePath,
     );
   }
 

@@ -1,7 +1,7 @@
-import '../models/budget.dart';
-import '../../data/models/expense_model.dart';
-import '../../data/repositories/budget_repository.dart';
-import '../../data/repositories/expense_repository.dart';
+import '../core/models/budget.dart';
+import '../core/models/expense.dart';
+import '../data/repositories/budget_repository.dart';
+import '../data/repositories/expense_repository.dart';
 
 /// Service for budget tracking and alerts
 class BudgetService {
@@ -79,7 +79,7 @@ class BudgetService {
   /// Calculate total budget across all categories
   Future<double> getTotalBudget() async {
     final budgets = await _budgetRepository.getCurrentlyActiveBudgets();
-    return budgets.fold(0.0, (sum, budget) => sum + budget.amount);
+    return budgets.fold<double>(0.0, (sum, budget) => sum + budget.amount);
   }
 
   /// Calculate total spending across all categories
@@ -172,14 +172,14 @@ class BudgetService {
     final dateRange = _getDateRangeForPeriod(budget.period, date);
     
     final expenses = await _expenseRepository.getExpensesByDateRange(
-      startDate: dateRange.start,
-      endDate: dateRange.end,
+      dateRange.start,
+      dateRange.end,
     );
 
     // Filter by category and sum amounts
     return expenses
         .where((expense) => expense.category == category)
-        .fold(0.0, (sum, expense) => sum + expense.amount);
+        .fold<double>(0.0, (sum, expense) => sum + expense.amount);
   }
 
   /// Helper: Determine alert level based on percentage

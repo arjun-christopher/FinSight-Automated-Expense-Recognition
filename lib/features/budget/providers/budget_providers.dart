@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/models/budget.dart';
-import '../../data/repositories/budget_repository.dart';
-import '../../services/budget_service.dart';
-import '../../core/providers/database_providers.dart';
+import '../../../core/models/budget.dart';
+import '../../../data/repositories/budget_repository.dart';
+import '../../../services/budget_service.dart';
+import '../../../core/providers/database_providers.dart';
 
 /// Provider for BudgetRepository
 final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {

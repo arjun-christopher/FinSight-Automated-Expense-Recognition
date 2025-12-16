@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../../../core/constants/expense_constants.dart';
+import '../../../core/constants/expense_constants.dart';
+import '../providers/dashboard_provider.dart';
 
 /// Category pie chart widget
 class CategoryPieChart extends StatefulWidget {
@@ -329,7 +330,7 @@ class MonthlyTrendChart extends StatelessWidget {
             ],
             lineTouchData: LineTouchData(
               touchTooltipData: LineTouchTooltipData(
-                getTooltipColor: (touchedSpot) => theme.colorScheme.surface,
+                tooltipBgColor: theme.colorScheme.surface,
                 getTooltipItems: (touchedSpots) {
                   return touchedSpots.map((spot) {
                     return LineTooltipItem(
@@ -412,7 +413,7 @@ class WeeklyBarChart extends StatelessWidget {
             minY: 0,
             barTouchData: BarTouchData(
               touchTooltipData: BarTouchTooltipData(
-                getTooltipColor: (group) => theme.colorScheme.surface,
+                tooltipBgColor: theme.colorScheme.surface,
                 getTooltipItem: (group, groupIndex, rod, rodIndex) {
                   return BarTooltipItem(
                     '\$${rod.toY.toStringAsFixed(2)}',
@@ -545,6 +546,3 @@ class WeeklyBarChart extends StatelessWidget {
     );
   }
 }
-
-// Import for providers
-import '../../providers/dashboard_provider.dart';

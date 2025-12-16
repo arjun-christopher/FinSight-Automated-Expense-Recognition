@@ -1,4 +1,4 @@
-package com.finsight.finsight
+package com.finsight.app
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

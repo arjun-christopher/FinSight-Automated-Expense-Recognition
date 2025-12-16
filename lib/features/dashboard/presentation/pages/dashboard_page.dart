@@ -305,7 +305,7 @@ class DashboardPage extends ConsumerWidget {
                 leading: CircleAvatar(
                   child: Text(emoji, style: const TextStyle(fontSize: 20)),
                 ),
-                title: Text(expense.merchant ?? expense.category),
+                title: Text(expense.description ?? expense.category),
                 subtitle: Text(
                   '${expense.category} • ${_formatDate(expense.date)}',
                   style: theme.textTheme.bodySmall,

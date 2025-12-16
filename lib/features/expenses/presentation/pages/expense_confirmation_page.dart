@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../core/models/expense.dart';
-import '../../core/constants/expense_constants.dart';
-import '../../services/ocr_workflow_service.dart';
-import '../../data/repositories/expense_repository.dart';
-import '../../core/providers/database_providers.dart';
+import '../../../../core/models/expense.dart';
+import '../../../../core/models/classification_result.dart';
+import '../../../../core/constants/expense_constants.dart';
+import '../../../../services/ocr_workflow_service.dart';
+import '../../../../data/repositories/expense_repository.dart';
+import '../../../../core/providers/database_providers.dart';
 
 /// Provider for workflow result
 final workflowResultProvider = StateProvider<WorkflowResult?>((ref) => null);
@@ -56,7 +57,7 @@ class _ExpenseConfirmationPageState
       text: receipt.merchantName ?? '',
     );
     _notesController = TextEditingController(
-      text: receipt.items?.map((i) => i.description).join(', ') ?? '',
+      text: receipt.items?.map((i) => i.name).join(', ') ?? '',
     );
     
     _selectedCategory = widget.result.classification?.category ?? ExpenseCategories.other;
@@ -115,14 +116,10 @@ class _ExpenseConfirmationPageState
         amount: double.parse(_amountController.text),
         category: _selectedCategory,
         date: _selectedDate,
-        merchantName: _merchantController.text.isEmpty 
-            ? null 
-            : _merchantController.text,
-        notes: _notesController.text.isEmpty 
-            ? null 
+        description: _notesController.text.isEmpty 
+            ? _merchantController.text 
             : _notesController.text,
         paymentMethod: _selectedPaymentMethod,
-        receiptImagePath: widget.result.imagePath,
       );
 
       final repository = ref.read(expenseRepositoryProvider);
