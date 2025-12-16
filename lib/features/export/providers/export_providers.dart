@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/export_service.dart';
+import '../../../services/currency_service.dart';
 import '../../../core/models/expense.dart';
 import '../../../core/models/budget.dart';
 import '../../../services/share_helper.dart';
+import '../../settings/providers/currency_providers.dart';
 
 // Export Service Provider
 final exportServiceProvider = Provider<ExportService>((ref) {
@@ -13,7 +15,7 @@ final exportServiceProvider = Provider<ExportService>((ref) {
 // Export State Provider
 final exportStateProvider = StateNotifierProvider<ExportController, ExportState>((ref) {
   final exportService = ref.watch(exportServiceProvider);
-  return ExportController(exportService);
+  return ExportController(exportService, ref);
 });
 
 // Export Format Provider
@@ -100,8 +102,9 @@ class DateRange {
 // Export Controller
 class ExportController extends StateNotifier<ExportState> {
   final ExportService _exportService;
+  final Ref _ref;
 
-  ExportController(this._exportService) : super(const ExportState());
+  ExportController(this._exportService, this._ref) : super(const ExportState());
 
   /// Export expenses to PDF
   Future<File?> exportToPDF({
@@ -116,11 +119,16 @@ class ExportController extends StateNotifier<ExportState> {
     );
 
     try {
+      final displayCurrency = _ref.read(currencyNotifierProvider);
+      final currencyService = CurrencyService();
+      
       final file = await _exportService.generatePDFReport(
         expenses: expenses,
         title: title,
         startDate: startDate,
         endDate: endDate,
+        displayCurrency: displayCurrency,
+        currencyService: currencyService,
       );
 
       state = state.copyWith(
@@ -153,12 +161,17 @@ class ExportController extends StateNotifier<ExportState> {
     );
 
     try {
+      final displayCurrency = _ref.read(currencyNotifierProvider);
+      final currencyService = CurrencyService();
+      
       final file = await _exportService.generateDetailedPDFReport(
         expenses: expenses,
         budgets: budgets,
         title: title,
         startDate: startDate,
         endDate: endDate,
+        displayCurrency: displayCurrency,
+        currencyService: currencyService,
       );
 
       state = state.copyWith(
@@ -188,9 +201,14 @@ class ExportController extends StateNotifier<ExportState> {
     );
 
     try {
+      final displayCurrency = _ref.read(currencyNotifierProvider);
+      final currencyService = CurrencyService();
+      
       final file = await _exportService.generateCSV(
         expenses: expenses,
         fileName: fileName,
+        displayCurrency: displayCurrency,
+        currencyService: currencyService,
       );
 
       state = state.copyWith(
@@ -220,9 +238,14 @@ class ExportController extends StateNotifier<ExportState> {
     );
 
     try {
+      final displayCurrency = _ref.read(currencyNotifierProvider);
+      final currencyService = CurrencyService();
+      
       final file = await _exportService.generateDetailedCSV(
         expenses: expenses,
         fileName: fileName,
+        displayCurrency: displayCurrency,
+        currencyService: currencyService,
       );
 
       state = state.copyWith(

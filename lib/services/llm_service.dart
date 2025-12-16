@@ -201,8 +201,8 @@ class MockLlmService extends LlmService {
     String? description,
     double? amount,
   }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Simulate network delay (reduced for better UX)
+    await Future.delayed(const Duration(milliseconds: 100));
 
     // Mock classification based on merchant name
     final merchant = merchantName.toLowerCase();

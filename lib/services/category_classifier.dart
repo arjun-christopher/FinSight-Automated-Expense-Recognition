@@ -6,6 +6,9 @@ import 'llm_service.dart';
 class CategoryClassifier {
   final LlmService? llmService;
   final ConfidenceThresholds thresholds;
+  
+  // Cache for classification results (merchant name -> result)
+  final Map<String, ClassificationResult> _cache = {};
 
   CategoryClassifier({
     this.llmService,
@@ -78,12 +81,20 @@ class CategoryClassifier {
     String? description,
     double? amount,
   }) async {
+    // Check cache first for faster results
+    final cacheKey = _normalizeText(merchantName);
+    if (_cache.containsKey(cacheKey)) {
+      return _cache[cacheKey]!;
+    }
+    
     if (llmService == null) {
       // Fall back to rule-based if no LLM service
-      return classifyWithRules(
+      final result = await classifyWithRules(
         merchantName: merchantName,
         description: description,
       );
+      _cache[cacheKey] = result;
+      return result;
     }
 
     final stopwatch = Stopwatch()..start();
@@ -94,10 +105,10 @@ class CategoryClassifier {
       description: description,
     );
 
-    // If rule-based confidence is high enough, use it
+    // If rule-based confidence is high enough, skip LLM to save time
     if (ruleResult.confidence >= thresholds.autoAccept) {
       stopwatch.stop();
-      return ClassificationResult.hybrid(
+      final result = ClassificationResult.hybrid(
         category: ruleResult.category,
         confidence: ruleResult.confidence,
         rulePrediction: ruleResult.category,
@@ -108,6 +119,8 @@ class CategoryClassifier {
         candidateScores: ruleResult.candidateScores,
         processingTimeMs: stopwatch.elapsedMilliseconds,
       );
+      _cache[cacheKey] = result;
+      return result;
     }
 
     // Get LLM prediction for low confidence cases
@@ -134,7 +147,7 @@ class CategoryClassifier {
 
     stopwatch.stop();
 
-    return ClassificationResult.hybrid(
+    final result = ClassificationResult.hybrid(
       category: finalCategory,
       confidence: finalConfidence,
       rulePrediction: ruleResult.category,
@@ -145,6 +158,23 @@ class CategoryClassifier {
       candidateScores: ruleResult.candidateScores,
       processingTimeMs: stopwatch.elapsedMilliseconds,
     );
+    
+    // Cache the result for future use
+    _cache[cacheKey] = result;
+    
+    return result;
+  }
+
+  /// Clear the classification cache
+  void clearCache() {
+    _cache.clear();
+  }
+
+  /// Get cache statistics
+  Map<String, int> getCacheStats() {
+    return {
+      'size': _cache.length,
+    };
   }
 
   /// Batch classify multiple expenses

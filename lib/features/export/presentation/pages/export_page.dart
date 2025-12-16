@@ -400,7 +400,8 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   }
 
   Future<void> _handleExport(ExportController controller) async {
-    // Get expenses with optional date filter
+    // Refresh expenses data to get latest
+    ref.invalidate(allExpensesProvider);
     final allExpensesAsync = ref.read(allExpensesProvider);
     
     allExpensesAsync.when(

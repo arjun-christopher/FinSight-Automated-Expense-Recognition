@@ -71,6 +71,7 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
 
     // Show processing dialog
     if (!mounted) return;
+    final dialogContext = context;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -81,19 +82,25 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
       // Create workflow service
       final workflow = OcrWorkflowFactory.createMockWorkflow();
 
-      // Process receipt through workflow
+      // Process receipt with timeout (30 seconds)
+      final stopwatch = Stopwatch()..start();
       final result = await workflow.processReceipt(
         imagePath: imagePath,
         useClassifier: true,
         onStepComplete: (step) {
-          debugPrint('Completed step: ${step.name}');
+          debugPrint('Completed step: ${step.name} at ${stopwatch.elapsedMilliseconds}ms');
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Processing timed out. The receipt may be too complex or unclear. Please try again with a clearer image.');
         },
       );
 
       if (!mounted) return;
       
       // Close processing dialog
-      Navigator.of(context).pop();
+      Navigator.of(dialogContext).pop();
 
       if (result.success) {
         // Navigate to confirmation screen
@@ -103,27 +110,35 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
         ref.read(receiptCaptureProvider.notifier).reset();
       } else {
         // Show error
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Processing failed: ${result.errorMessage ?? "Unknown error"}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showErrorSnackbar('Processing failed: ${result.errorMessage ?? "Unknown error"}');
       }
     } catch (e) {
       if (!mounted) return;
       
       // Close processing dialog
-      Navigator.of(context).pop();
+      Navigator.of(dialogContext).pop();
       
-      // Show error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error processing receipt: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Show error with helpful message
+      final errorMessage = e.toString().contains('timed out')
+          ? e.toString()
+          : 'Error processing receipt: ${e.toString().replaceAll("Exception: ", "")}';
+      _showErrorSnackbar(errorMessage);
     }
+  }
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
   }
 
   @override
@@ -232,15 +247,68 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
             onPressed: _handleGalleryPick,
             color: Theme.of(context).colorScheme.secondary,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'The receipt will be processed automatically',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.tips_and_updates,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tips for faster processing:',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
                   ),
-              textAlign: TextAlign.center,
+                  const SizedBox(height: 8),
+                  ...[
+                    'Ensure good lighting',
+                    'Hold camera steady',
+                    'Capture full receipt in frame',
+                    'Avoid blurry or skewed images',
+                  ].map((tip) => Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '• ',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                  ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                tip,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),

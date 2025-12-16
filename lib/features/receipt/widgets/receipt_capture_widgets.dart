@@ -272,6 +272,7 @@ class _ProcessingDialogState extends State<ProcessingDialog>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   int _currentStep = 0;
+  int _elapsedSeconds = 0;
   
   final List<String> _steps = [
     'Scanning receipt...',
@@ -288,8 +289,11 @@ class _ProcessingDialogState extends State<ProcessingDialog>
       vsync: this,
     )..repeat();
     
-    // Cycle through steps
-    Future.delayed(const Duration(milliseconds: 800), _nextStep);
+    // Cycle through steps more slowly to match actual processing
+    Future.delayed(const Duration(seconds: 3), _nextStep);
+    
+    // Update elapsed time counter
+    Future.delayed(const Duration(seconds: 1), _updateElapsedTime);
   }
 
   void _nextStep() {
@@ -297,7 +301,17 @@ class _ProcessingDialogState extends State<ProcessingDialog>
       setState(() {
         _currentStep++;
       });
-      Future.delayed(const Duration(milliseconds: 800), _nextStep);
+      // Longer delay to better match real processing time
+      Future.delayed(const Duration(seconds: 3), _nextStep);
+    }
+  }
+
+  void _updateElapsedTime() {
+    if (mounted) {
+      setState(() {
+        _elapsedSeconds++;
+      });
+      Future.delayed(const Duration(seconds: 1), _updateElapsedTime);
     }
   }
 
@@ -354,6 +368,41 @@ class _ProcessingDialogState extends State<ProcessingDialog>
                   .colorScheme
                   .primary
                   .withOpacity(0.1),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.access_time,
+                  size: 14,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withOpacity(0.5),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${_elapsedSeconds}s elapsed',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Usually takes 5-15 seconds',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.5),
+                    fontStyle: FontStyle.italic,
+                  ),
             ),
           ],
         ),

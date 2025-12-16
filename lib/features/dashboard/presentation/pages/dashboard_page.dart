@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../widgets/chart_widgets.dart';
 import '../../../../core/constants/expense_constants.dart';
@@ -39,7 +40,7 @@ class DashboardPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () {
-              // TODO: Show notifications
+              context.push('/notifications');
             },
           ),
         ],
