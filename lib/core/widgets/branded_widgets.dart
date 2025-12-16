@@ -57,8 +57,8 @@ class BrandedAppBar extends StatelessWidget implements PreferredSizeWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.asset(
-              'assets/icons/finsight_icon.png',
-              fit: BoxFit.cover,
+              'assets/images/Logo.png',
+              fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 // Fallback to painted icon
                 return Container(
@@ -128,8 +128,8 @@ class AppLogo extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.2),
         child: Image.asset(
-          'assets/icons/finsight_icon.png',
-          fit: BoxFit.cover,
+          'assets/images/Logo.png',
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
             return _buildFallbackLogo(context);
           },

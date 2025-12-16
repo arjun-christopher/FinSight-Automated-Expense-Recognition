@@ -142,23 +142,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 24),
-
-                      // App name
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: const Text(
-                          'FinSight',
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 48),
 
                       // Tagline
                       FadeTransition(
@@ -238,8 +222,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Image.asset(
-          'assets/icons/finsight_icon.png',
-          fit: BoxFit.cover,
+          'assets/images/Logo.png',
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
             // Fallback: Custom painted logo
             return CustomPaint(
@@ -258,10 +242,10 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
       begin: Alignment(math.cos(angle), math.sin(angle)),
       end: Alignment(-math.cos(angle), -math.sin(angle)),
       colors: const [
-        Color(0xFF2E7D32), // Dark green
-        Color(0xFF66BB6A), // Light green
-        Color(0xFF00BCD4), // Cyan
-        Color(0xFF4DD0E1), // Light cyan
+        Color(0xFF2E7D32), // Primary green - matching logo
+        Color(0xFF4CAF50), // Medium green
+        Color(0xFF26A69A), // Teal transition
+        Color(0xFF00BCD4), // Cyan accent - matching logo
       ],
       stops: const [0.0, 0.3, 0.7, 1.0],
     );

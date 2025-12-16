@@ -16,37 +16,31 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  final List<NavigationDestination> _destinations = const [
-    NavigationDestination(
+  final List<BottomNavigationBarItem> _navItems = const [
+    BottomNavigationBarItem(
       icon: Icon(Icons.dashboard_outlined),
-      selectedIcon: Icon(Icons.dashboard),
+      activeIcon: Icon(Icons.dashboard),
       label: 'Dashboard',
     ),
-    NavigationDestination(
-      icon: Icon(Icons.add_circle_outline),
-      selectedIcon: Icon(Icons.add_circle),
-      label: 'Add Expense',
-    ),
-    NavigationDestination(
+    BottomNavigationBarItem(
       icon: Icon(Icons.receipt_long_outlined),
-      selectedIcon: Icon(Icons.receipt_long),
+      activeIcon: Icon(Icons.receipt_long),
       label: 'Receipts',
     ),
-    NavigationDestination(
+    BottomNavigationBarItem(
       icon: Icon(Icons.camera_alt_outlined),
-      selectedIcon: Icon(Icons.camera_alt),
+      activeIcon: Icon(Icons.camera_alt),
       label: 'Scan',
     ),
-    NavigationDestination(
+    BottomNavigationBarItem(
       icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
+      activeIcon: Icon(Icons.settings),
       label: 'Settings',
     ),
   ];
 
   final List<String> _routes = [
     '/dashboard',
-    '/add-expense',
     '/receipts',
     '/receipt-capture',
     '/settings',
@@ -81,11 +75,22 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: widget.child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _onDestinationSelected,
-        destinations: _destinations,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: _onDestinationSelected,
+        items: _navItems,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Colors.grey,
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          context.go('/add-expense');
+        },
+        elevation: 4,
+        child: const Icon(Icons.add),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }

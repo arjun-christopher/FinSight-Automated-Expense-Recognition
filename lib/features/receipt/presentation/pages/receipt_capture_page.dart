@@ -206,39 +206,46 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
     }
 
     // Show capture options
-    return Column(
-      children: [
-        Expanded(
-          child: EmptyStateWidget(
-            icon: Icons.camera_alt_outlined,
-            title: 'Capture Receipt',
-            subtitle:
-                'Take a photo of your receipt or choose from gallery to get started',
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.35,
+            child: EmptyStateWidget(
+              icon: Icons.camera_alt_outlined,
+              title: 'Capture Receipt',
+              subtitle:
+                  'Take a photo of your receipt or choose from gallery to get started',
+            ),
           ),
-        ),
-        const SizedBox(height: 24),
-        CaptureButton(
-          icon: Icons.camera_alt,
-          label: 'Take Photo',
-          onPressed: _handleCameraCapture,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        const SizedBox(height: 16),
-        CaptureButton(
-          icon: Icons.photo_library,
-          label: 'Choose from Gallery',
-          onPressed: _handleGalleryPick,
-          color: Theme.of(context).colorScheme.secondary,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'The receipt will be processed automatically',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+          const SizedBox(height: 24),
+          CaptureButton(
+            icon: Icons.camera_alt,
+            label: 'Take Photo',
+            onPressed: _handleCameraCapture,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          CaptureButton(
+            icon: Icons.photo_library,
+            label: 'Choose from Gallery',
+            onPressed: _handleGalleryPick,
+            color: Theme.of(context).colorScheme.secondary,
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'The receipt will be processed automatically',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 }
