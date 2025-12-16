@@ -8,6 +8,8 @@ import '../../features/receipt/presentation/pages/receipt_capture_page.dart';
 import '../../features/receipt/presentation/pages/receipt_list_page.dart';
 import '../../features/receipt/presentation/pages/receipt_detail_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/export/presentation/pages/export_page.dart';
+import '../../features/notifications/presentation/pages/notification_settings_page.dart';
 import '../../features/auth/presentation/pages/profile_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/providers/auth_providers.dart';
@@ -99,6 +101,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: 'settings',
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/export',
+            name: 'export',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ExportPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/notifications',
+            name: 'notifications',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: NotificationSettingsPage(),
             ),
           ),
         ],

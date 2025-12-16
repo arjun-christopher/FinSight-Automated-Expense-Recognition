@@ -40,3 +40,14 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
   final dataSource = ref.watch(budgetLocalDataSourceProvider);
   return BudgetRepository(dataSource);
 });
+
+// Data Providers
+final allExpensesProvider = FutureProvider((ref) async {
+  final repository = ref.watch(expenseRepositoryProvider);
+  return await repository.getAllExpenses();
+});
+
+final allBudgetsProvider = FutureProvider((ref) async {
+  final repository = ref.watch(budgetRepositoryProvider);
+  return await repository.getAllBudgets();
+});

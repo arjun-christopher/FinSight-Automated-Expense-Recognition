@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../services/notification_scheduler.dart';
-import '../../../services/notification_service.dart';
+import '../../../../services/notification_scheduler.dart';
+import '../../../../services/notification_service.dart';
 
 /// Notification Settings Page
 /// 

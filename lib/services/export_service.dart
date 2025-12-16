@@ -195,10 +195,10 @@ class ExportService {
       // Data rows
       ...expenses.map((expense) => [
         _dateFormat.format(expense.date),
-        expense.description,
+        expense.description ?? '',
         expense.category,
         expense.amount.toStringAsFixed(2),
-        expense.notes ?? '',
+        expense.description ?? '',
       ]),
     ];
 
@@ -238,11 +238,11 @@ class ExportService {
         return [
           _dateFormat.format(expense.date),
           dayOfWeek,
-          expense.description,
+          expense.description ?? '',
           expense.category,
           expense.amount.toStringAsFixed(2),
           expense.paymentMethod ?? 'N/A',
-          expense.notes ?? '',
+          expense.description ?? '',
           createdAt,
         ];
       }),
@@ -444,7 +444,7 @@ class ExportService {
         ...expenses.take(50).map((expense) => pw.TableRow(
           children: [
             _buildPDFTableCell(_dateFormat.format(expense.date)),
-            _buildPDFTableCell(expense.description),
+            _buildPDFTableCell(expense.description ?? 'No description'),
             _buildPDFTableCell(expense.category),
             _buildPDFTableCell(_currencyFormat.format(expense.amount)),
           ],

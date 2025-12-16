@@ -69,7 +69,7 @@ class SettingsPage extends ConsumerWidget {
                   subtitle: 'Configure notifications',
                   icon: Icons.notifications_outlined,
                   onTap: () {
-                    // TODO: Navigate to notifications settings
+                    context.push('/notifications');
                   },
                 ),
               ],
@@ -86,7 +86,7 @@ class SettingsPage extends ConsumerWidget {
                   subtitle: 'Export to PDF or CSV',
                   icon: Icons.file_download_outlined,
                   onTap: () {
-                    // TODO: Implement export
+                    context.push('/export');
                   },
                 ),
                 const Divider(height: 1),
@@ -95,7 +95,19 @@ class SettingsPage extends ConsumerWidget {
                   subtitle: 'Cloud backup settings',
                   icon: Icons.cloud_outlined,
                   onTap: () {
-                    // TODO: Navigate to backup settings
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Coming Soon'),
+                        content: const Text('Cloud backup and sync feature will be available in a future update.\n\nFor now, you can export your data using the Export Data option.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
                   },
                 ),
               ],

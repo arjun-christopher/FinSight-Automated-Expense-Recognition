@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/notification_service.dart';
 import '../services/budget_service.dart';
 import '../data/repositories/expense_repository.dart';
+import '../core/providers/database_providers.dart';
+import '../features/budget/providers/budget_providers.dart';
 
 /// Notification scheduling keys for SharedPreferences
 class NotificationPreferenceKeys {

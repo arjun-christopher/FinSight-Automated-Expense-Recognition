@@ -6,6 +6,10 @@ import '../../../core/constants/expense_constants.dart';
 import '../../../data/repositories/expense_repository.dart';
 import '../../../core/providers/database_providers.dart';
 import '../../settings/providers/currency_providers.dart';
+import '../../../services/notification_service.dart';
+import '../../../services/notification_scheduler.dart';
+import '../../../services/budget_service.dart';
+import '../../budget/providers/budget_providers.dart';
 
 // Form state class
 class ExpenseFormState {
@@ -118,6 +122,20 @@ class ExpenseFormNotifier extends StateNotifier<ExpenseFormState> {
       );
 
       await _repository.createExpense(expense);
+
+      // Check budget alerts after creating expense
+      try {
+        final settingsAsync = _ref.read(notificationSettingsProvider);
+        final settings = settingsAsync.valueOrNull;
+        if (settings?.budgetAlertsEnabled == true) {
+          final notificationService = _ref.read(notificationServiceProvider);
+          final budgetService = _ref.read(budgetServiceProvider);
+          await notificationService.checkAndSendBudgetAlerts(budgetService);
+        }
+      } catch (e) {
+        // Don't fail expense save if notification check fails
+        print('Failed to check budget alerts: $e');
+      }
 
       state = state.copyWith(
         isLoading: false,

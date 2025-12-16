@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../providers/export_providers.dart';
-import '../../../../../core/providers/expense_providers.dart';
-import '../../../../budget/providers/budget_providers.dart';
+import '../../../../core/providers/database_providers.dart';
+import '../../../../core/models/budget.dart';
+import '../../../budget/providers/budget_providers.dart';
 
 /// Export Page - Allows users to export expenses in various formats
 /// 
@@ -476,10 +477,14 @@ class _ExportPageState extends ConsumerState<ExportPage> {
             SnackBar(
               content: Text('Export successful: ${_selectedFormat.displayName}'),
               backgroundColor: Colors.green,
-              action: SnackBarAction(
+              action: exportedFile != null ? SnackBarAction(
                 label: 'Share',
                 textColor: Colors.white,
-                onPressed: () => controller.shareFile(exportedFile),
+                onPressed: () => controller.shareFile(exportedFile!),
+              ) : SnackBarAction(
+                label: 'OK',
+                textColor: Colors.white,
+                onPressed: () {},
               ),
             ),
           );

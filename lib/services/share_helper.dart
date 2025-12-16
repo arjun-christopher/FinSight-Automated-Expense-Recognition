@@ -58,8 +58,8 @@ class ShareHelper {
   }
 
   /// Share text only (no file)
-  static Future<ShareResult> shareText(String text, {String? subject}) async {
-    return await Share.share(text, subject: subject);
+  static Future<void> shareText(String text, {String? subject}) async {
+    await Share.share(text, subject: subject);
   }
 
   /// Get file name from path

@@ -9,6 +9,10 @@ import '../../../../core/constants/expense_constants.dart';
 import '../../../../services/ocr_workflow_service.dart';
 import '../../../../data/repositories/expense_repository.dart';
 import '../../../settings/providers/currency_providers.dart';
+import '../../../../services/notification_service.dart';
+import '../../../../services/notification_scheduler.dart';
+import '../../../../services/budget_service.dart';
+import '../../../budget/providers/budget_providers.dart';
 import '../../../../core/providers/database_providers.dart';
 
 /// Provider for workflow result
@@ -127,6 +131,20 @@ class _ExpenseConfirmationPageState
 
       final repository = ref.read(expenseRepositoryProvider);
       await repository.createExpense(expense);
+
+      // Check budget alerts after creating expense
+      try {
+        final settingsAsync = ref.read(notificationSettingsProvider);
+        final settings = settingsAsync.valueOrNull;
+        if (settings?.budgetAlertsEnabled == true) {
+          final notificationService = ref.read(notificationServiceProvider);
+          final budgetService = ref.read(budgetServiceProvider);
+          await notificationService.checkAndSendBudgetAlerts(budgetService);
+        }
+      } catch (e) {
+        // Don't fail expense save if notification check fails
+        print('Failed to check budget alerts: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
