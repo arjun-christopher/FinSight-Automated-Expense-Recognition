@@ -8,14 +8,59 @@ import '../../features/receipt/presentation/pages/receipt_capture_page.dart';
 import '../../features/receipt/presentation/pages/receipt_list_page.dart';
 import '../../features/receipt/presentation/pages/receipt_detail_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/auth/presentation/pages/profile_page.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/providers/auth_providers.dart';
 import '../../services/ocr_workflow_service.dart';
 import '../widgets/main_navigation.dart';
 import '../animations/app_animations.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+  
   return GoRouter(
     initialLocation: '/dashboard',
+    redirect: (context, state) {
+      final isLoggedIn = authState.asData?.value != null;
+      final isLoggingIn = state.matchedLocation == '/login';
+      
+      if (!isLoggedIn && !isLoggingIn) {
+        return '/login';
+      }
+      if (isLoggedIn && isLoggingIn) {
+        return '/dashboard';
+      }
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: LoginPage(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        pageBuilder: (context, state) {
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: const ProfilePage(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                ),
+                child: child,
+              );
+            },
+          );
+        },
+      ),
       ShellRoute(
         builder: (context, state, child) {
           return MainNavigation(child: child);

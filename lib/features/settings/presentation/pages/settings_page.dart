@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/theme_manager.dart';
+import '../../../../services/currency_service.dart';
+import '../../providers/currency_providers.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -31,6 +34,22 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
+          _SectionHeader(title: 'Regional'),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Consumer(
+              builder: (context, ref, child) {
+                final currency = ref.watch(currencyNotifierProvider);
+                return _SettingsTile(
+                  title: 'Currency',
+                  subtitle: '${CurrencyService.getName(currency)} (${CurrencyService.getSymbol(currency)})',
+                  icon: Icons.attach_money,
+                  onTap: () => _showCurrencyDialog(context, ref),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
           _SectionHeader(title: 'Account'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -41,7 +60,7 @@ class SettingsPage extends ConsumerWidget {
                   subtitle: 'Manage your profile',
                   icon: Icons.person_outline,
                   onTap: () {
-                    // TODO: Navigate to profile
+                    context.push('/profile');
                   },
                 ),
                 const Divider(height: 1),
@@ -122,7 +141,48 @@ class SettingsPage extends ConsumerWidget {
         return 'System Default';
     }
   }
+  void _showCurrencyDialog(BuildContext context, WidgetRef ref) {
+    final currentCurrency = ref.read(currencyNotifierProvider);
+    final currencies = CurrencyService.currencySymbols.keys.toList();
+    currencies.sort();
 
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Currency'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: currencies.length,
+            itemBuilder: (context, index) {
+              final currency = currencies[index];
+              final isSelected = currency == currentCurrency;
+              return ListTile(
+                leading: Icon(
+                  isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                  color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                ),
+                title: Text(CurrencyService.getName(currency)),
+                subtitle: Text('${CurrencyService.getSymbol(currency)} - $currency'),
+                selected: isSelected,
+                onTap: () {
+                  ref.read(currencyNotifierProvider.notifier).setCurrency(currency);
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
   void _showThemeDialog(BuildContext context, WidgetRef ref) {
     final currentMode = ref.read(themeModeProvider);
     
