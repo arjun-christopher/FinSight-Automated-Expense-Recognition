@@ -41,43 +41,20 @@ class BrandedAppBar extends StatelessWidget implements PreferredSizeWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Logo icon
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              'assets/images/Logo.png',
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                // Fallback to painted icon
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2E7D32), Color(0xFF00BCD4)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.trending_up,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                );
-              },
-            ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.asset(
+            'assets/icons/Icon.png',
+            width: 32,
+            height: 32,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(
+                Icons.trending_up,
+                color: Colors.white,
+                size: 32,
+              );
+            },
           ),
         ),
         const SizedBox(width: 12),
@@ -112,28 +89,20 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logo = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.2),
-        child: Image.asset(
-          'assets/images/Logo.png',
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildFallbackLogo(context);
-          },
-        ),
+    final logo = ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.2),
+      child: Image.asset(
+        'assets/icons/Icon.png',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Icon(
+            Icons.trending_up,
+            size: size,
+            color: Theme.of(context).primaryColor,
+          );
+        },
       ),
     );
 

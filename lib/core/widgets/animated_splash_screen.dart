@@ -205,32 +205,23 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
 
   Widget _buildLogo() {
     // Try to load logo from assets, fallback to placeholder
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            spreadRadius: 5,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Image.asset(
-          'assets/images/Logo.png',
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            // Fallback: Custom painted logo
-            return CustomPaint(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Image.asset(
+        'assets/images/Logo.png',
+        width: 120,
+        height: 120,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          // Fallback: Custom painted logo
+          return SizedBox(
+            width: 120,
+            height: 120,
+            child: CustomPaint(
               painter: LogoPlaceholderPainter(),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

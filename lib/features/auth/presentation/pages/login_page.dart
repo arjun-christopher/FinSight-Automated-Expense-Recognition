@@ -76,31 +76,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Widget _buildLogo() {
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.blue.shade600,
-            Colors.blue.shade400,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.shade200,
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.account_balance_wallet_rounded,
-        size: 64,
-        color: Colors.white,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Image.asset(
+        'assets/icons/Icon.png',
+        width: 120,
+        height: 120,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(
+            Icons.account_balance_wallet_rounded,
+            size: 120,
+            color: Colors.blue,
+          );
+        },
       ),
     );
   }

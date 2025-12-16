@@ -5,21 +5,9 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icons/Icon.png"
-  adaptive_icon_background: "#2E7D32"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icons/Icon.png"
   remove_alpha_ios: true
-  
-  # Platform-specific icons
-  android:
-    generate: true
-    image_path: "assets/icons/Icon.png"
-    adaptive_icon_background: "#2E7D32"
-    adaptive_icon_foreground: "assets/icons/Icon.png"
-    adaptive_icon_round: "assets/icons/Icon.png"
-  
-  ios:
-    generate: true
-    image_path: "assets/icons/Icon.png"
 
 # Splash Screen Configuration
 flutter_native_splash:
