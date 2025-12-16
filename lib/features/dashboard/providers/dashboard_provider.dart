@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/expense.dart';
 import '../../../data/repositories/expense_repository.dart';
 import '../../../core/providers/database_providers.dart';
+import '../../../services/currency_service.dart';
+import '../../settings/providers/currency_providers.dart';
 
 /// Dashboard statistics model
 class DashboardStats {
@@ -89,10 +91,25 @@ class DashboardState {
 /// Dashboard provider
 class DashboardNotifier extends StateNotifier<DashboardState> {
   final ExpenseRepository _repository;
+  final Ref _ref;
 
-  DashboardNotifier(this._repository)
+  DashboardNotifier(this._repository, this._ref)
       : super(DashboardState(stats: DashboardStats.empty(), isLoading: true)) {
     loadDashboardData();
+  }
+  
+  /// Convert expense amount to display currency
+  Future<double> _convertAmount(Expense expense) async {
+    final displayCurrency = _ref.read(currencyNotifierProvider);
+    if (expense.currency == displayCurrency) {
+      return expense.amount;
+    }
+    
+    return await _ref.read(currencyNotifierProvider.notifier).convertAmount(
+      amount: expense.amount,
+      from: expense.currency ?? 'USD',
+      to: displayCurrency,
+    );
   }
 
   /// Load all dashboard data
@@ -103,11 +120,11 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       // Get all expenses
       final allExpenses = await _repository.getAllExpenses();
 
-      // Calculate total expenses
-      final totalExpenses = allExpenses.fold<double>(
-        0.0,
-        (sum, expense) => sum + expense.amount,
-      );
+      // Calculate total expenses (convert to display currency)
+      double totalExpenses = 0.0;
+      for (final expense in allExpenses) {
+        totalExpenses += await _convertAmount(expense);
+      }
 
       // Get current month expenses
       final now = DateTime.now();
@@ -116,10 +133,11 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       final monthExpenses = allExpenses
           .where((e) => e.date.isAfter(monthStart) && e.date.isBefore(monthEnd))
           .toList();
-      final monthlyTotal = monthExpenses.fold<double>(
-        0.0,
-        (sum, expense) => sum + expense.amount,
-      );
+      
+      double monthlyTotal = 0.0;
+      for (final expense in monthExpenses) {
+        monthlyTotal += await _convertAmount(expense);
+      }
 
       // Get week expenses
       final weekStart = now.subtract(Duration(days: now.weekday - 1));
@@ -127,19 +145,25 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       final weekExpenses = allExpenses
           .where((e) => e.date.isAfter(weekStart) && e.date.isBefore(weekEnd))
           .toList();
-      final weeklyTotal = weekExpenses.fold<double>(
-        0.0,
-        (sum, expense) => sum + expense.amount,
-      );
+      
+      double weeklyTotal = 0.0;
+      for (final expense in weekExpenses) {
+        weeklyTotal += await _convertAmount(expense);
+      }
 
-      // Get category totals
-      final categoryTotals = await _repository.getTotalByCategory();
+      // Get category totals (convert to display currency)
+      final categoryTotals = <String, double>{};
+      for (final expense in allExpenses) {
+        final convertedAmount = await _convertAmount(expense);
+        categoryTotals[expense.category] = 
+            (categoryTotals[expense.category] ?? 0.0) + convertedAmount;
+      }
 
       // Calculate monthly trend (last 6 months)
-      final monthlyTrend = _calculateMonthlyTrend(allExpenses);
+      final monthlyTrend = await _calculateMonthlyTrend(allExpenses);
 
       // Calculate weekly data (current week)
-      final weeklyData = _calculateWeeklyData(weekExpenses);
+      final weeklyData = await _calculateWeeklyData(weekExpenses);
 
       // Get recent expenses (last 10)
       final recentExpenses = allExpenses.take(10).toList();
@@ -166,7 +190,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   }
 
   /// Calculate monthly trend for last 6 months
-  List<MonthlyData> _calculateMonthlyTrend(List<Expense> expenses) {
+  Future<List<MonthlyData>> _calculateMonthlyTrend(List<Expense> expenses) async {
     final now = DateTime.now();
     final months = <MonthlyData>[];
 
@@ -179,10 +203,10 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         return e.date.isAfter(monthStart) && e.date.isBefore(monthEnd);
       }).toList();
 
-      final total = monthExpenses.fold<double>(
-        0.0,
-        (sum, expense) => sum + expense.amount,
-      );
+      double total = 0.0;
+      for (final expense in monthExpenses) {
+        total += await _convertAmount(expense);
+      }
 
       months.add(MonthlyData(month: monthStart, amount: total));
     }
@@ -191,7 +215,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   }
 
   /// Calculate weekly data for current week
-  List<WeeklyData> _calculateWeeklyData(List<Expense> weekExpenses) {
+  Future<List<WeeklyData>> _calculateWeeklyData(List<Expense> weekExpenses) async {
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday - 1));
@@ -206,10 +230,10 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         return e.date.isAfter(dayStart) && e.date.isBefore(dayEnd);
       }).toList();
 
-      final total = dayExpenses.fold<double>(
-        0.0,
-        (sum, expense) => sum + expense.amount,
-      );
+      double total = 0.0;
+      for (final expense in dayExpenses) {
+        total += await _convertAmount(expense);
+      }
 
       weeklyData.add(WeeklyData(day: days[i], amount: total));
     }
@@ -232,16 +256,17 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         endDate,
       );
 
-      final totalExpenses = expenses.fold<double>(
-        0.0,
-        (sum, expense) => sum + expense.amount,
-      );
+      double totalExpenses = 0.0;
+      for (final expense in expenses) {
+        totalExpenses += await _convertAmount(expense);
+      }
 
-      // Calculate category totals for period
+      // Calculate category totals for period (convert to display currency)
       final categoryTotals = <String, double>{};
       for (final expense in expenses) {
+        final convertedAmount = await _convertAmount(expense);
         categoryTotals[expense.category] =
-            (categoryTotals[expense.category] ?? 0.0) + expense.amount;
+            (categoryTotals[expense.category] ?? 0.0) + convertedAmount;
       }
 
       state = DashboardState(
@@ -270,5 +295,5 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
 final dashboardProvider =
     StateNotifierProvider<DashboardNotifier, DashboardState>((ref) {
   final repository = ref.watch(expenseRepositoryProvider);
-  return DashboardNotifier(repository);
+  return DashboardNotifier(repository, ref);
 });

@@ -273,7 +273,7 @@ class NotificationService {
   Future<void> checkAndSendBudgetAlerts(BudgetService budgetService) async {
     if (!_initialized) await initialize();
 
-    final statuses = await budgetService.getAllBudgetStatuses(DateTime.now());
+    final statuses = await budgetService.getAllBudgetStatuses(date: DateTime.now());
 
     for (final status in statuses) {
       if (status.alertLevel == BudgetAlertLevel.exceeded) {

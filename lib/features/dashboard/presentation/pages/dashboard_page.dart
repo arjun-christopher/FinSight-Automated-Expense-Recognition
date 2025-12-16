@@ -7,6 +7,9 @@ import '../../../budget/providers/budget_providers.dart';
 import '../../../budget/presentation/pages/budget_list_page.dart';
 import '../../../budget/presentation/widgets/budget_alert_banner.dart';
 import '../../../../core/widgets/branded_widgets.dart';
+import '../../../../services/currency_service.dart';
+import '../../../settings/providers/currency_providers.dart';
+import '../../../../core/widgets/converted_amount_widget.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -15,6 +18,13 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final dashboardState = ref.watch(dashboardProvider);
+    
+    // Listen to currency changes and refresh dashboard
+    ref.listen<String>(currencyNotifierProvider, (previous, next) {
+      if (previous != null && previous != next) {
+        ref.read(dashboardProvider.notifier).refresh();
+      }
+    });
 
     return Scaffold(
       appBar: BrandedAppBar(
@@ -68,7 +78,7 @@ class DashboardPage extends ConsumerWidget {
                           ),
 
                           // Summary Cards
-                          _buildSummaryCards(context, theme, dashboardState.stats!),
+                          _buildSummaryCards(context, ref, theme, dashboardState.stats!),
                           const SizedBox(height: 16),
 
                           // Budget Overview Card
@@ -123,7 +133,7 @@ class DashboardPage extends ConsumerWidget {
                           const SizedBox(height: 24),
 
                           // Recent Expenses Section
-                          _buildRecentExpenses(context, theme, dashboardState.stats!),
+                          _buildRecentExpenses(context, ref, theme, dashboardState.stats!),
                         ],
                       ),
       ),
@@ -175,21 +185,27 @@ class DashboardPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '\$${health.totalSpending.toStringAsFixed(0)} / \$${health.totalBudget.toStringAsFixed(0)}',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  Text(
-                    '${health.overallPercentage.toStringAsFixed(0)}% used',
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              Consumer(
+                builder: (context, ref, child) {
+                  final currency = ref.watch(currencyNotifierProvider);
+                  final symbol = CurrencyService.getSymbol(currency);
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '$symbol${health.totalSpending.toStringAsFixed(0)} / $symbol${health.totalBudget.toStringAsFixed(0)}',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      Text(
+                        '${health.overallPercentage.toStringAsFixed(0)}% used',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -211,7 +227,10 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  Widget _buildSummaryCards(BuildContext context, ThemeData theme, DashboardStats stats) {
+  Widget _buildSummaryCards(BuildContext context, WidgetRef ref, ThemeData theme, DashboardStats stats) {
+    final currency = ref.watch(currencyNotifierProvider);
+    final symbol = CurrencyService.getSymbol(currency);
+    
     return Column(
       children: [
         Row(
@@ -219,7 +238,7 @@ class DashboardPage extends ConsumerWidget {
             Expanded(
               child: _SummaryCard(
                 title: 'Total Expenses',
-                value: '\$${stats.totalExpenses.toStringAsFixed(2)}',
+                value: '$symbol${stats.totalExpenses.toStringAsFixed(2)}',
                 subtitle: '${stats.expenseCount} transactions',
                 icon: Icons.account_balance_wallet,
                 color: theme.colorScheme.primary,
@@ -229,7 +248,7 @@ class DashboardPage extends ConsumerWidget {
             Expanded(
               child: _SummaryCard(
                 title: 'This Month',
-                value: '\$${stats.monthlyExpenses.toStringAsFixed(2)}',
+                value: '$symbol${stats.monthlyExpenses.toStringAsFixed(2)}',
                 subtitle: 'Current period',
                 icon: Icons.calendar_today,
                 color: theme.colorScheme.secondary,
@@ -240,7 +259,7 @@ class DashboardPage extends ConsumerWidget {
         const SizedBox(height: 12),
         _SummaryCard(
           title: 'This Week',
-          value: '\$${stats.weeklyExpenses.toStringAsFixed(2)}',
+          value: '$symbol${stats.weeklyExpenses.toStringAsFixed(2)}',
           subtitle: 'Last 7 days',
           icon: Icons.date_range,
           color: theme.colorScheme.tertiary,
@@ -276,10 +295,13 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentExpenses(BuildContext context, ThemeData theme, DashboardStats stats) {
+  Widget _buildRecentExpenses(BuildContext context, WidgetRef ref, ThemeData theme, DashboardStats stats) {
     if (stats.recentExpenses.isEmpty) {
       return const SizedBox.shrink();
     }
+
+    final currency = ref.watch(currencyNotifierProvider);
+    final symbol = CurrencyService.getSymbol(currency);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,16 +324,27 @@ class DashboardPage extends ConsumerWidget {
               final emoji = ExpenseCategories.getEmoji(expense.category);
               
               return ListTile(
-                leading: CircleAvatar(
-                  child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    'assets/icons/Icon.png',
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return CircleAvatar(
+                        child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                      );
+                    },
+                  ),
                 ),
                 title: Text(expense.description ?? expense.category),
                 subtitle: Text(
                   '${expense.category} • ${_formatDate(expense.date)}',
                   style: theme.textTheme.bodySmall,
                 ),
-                trailing: Text(
-                  '\$${expense.amount.toStringAsFixed(2)}',
+                trailing: ConvertedAmountText(
+                  expense: expense,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),

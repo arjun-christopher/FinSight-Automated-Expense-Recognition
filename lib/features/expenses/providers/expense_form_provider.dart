@@ -5,6 +5,7 @@ import '../../../core/models/expense.dart';
 import '../../../core/constants/expense_constants.dart';
 import '../../../data/repositories/expense_repository.dart';
 import '../../../core/providers/database_providers.dart';
+import '../../settings/providers/currency_providers.dart';
 
 // Form state class
 class ExpenseFormState {
@@ -62,8 +63,9 @@ class ExpenseFormState {
 // State notifier for expense form
 class ExpenseFormNotifier extends StateNotifier<ExpenseFormState> {
   final ExpenseRepository _repository;
+  final Ref _ref;
 
-  ExpenseFormNotifier(this._repository)
+  ExpenseFormNotifier(this._repository, this._ref)
       : super(ExpenseFormState(
           date: DateTime.now(),
           category: ExpenseCategories.other,
@@ -105,12 +107,14 @@ class ExpenseFormNotifier extends StateNotifier<ExpenseFormState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
+      final currency = _ref.read(currencyNotifierProvider);
       final expense = Expense(
         amount: state.amount!,
         category: state.category,
         description: state.notes,
         date: state.date,
         paymentMethod: state.paymentMethod,
+        currency: currency,
       );
 
       await _repository.createExpense(expense);
@@ -164,6 +168,6 @@ final expenseFormProvider =
     StateNotifierProvider.autoDispose<ExpenseFormNotifier, ExpenseFormState>(
   (ref) {
     final repository = ref.watch(expenseRepositoryProvider);
-    return ExpenseFormNotifier(repository);
+    return ExpenseFormNotifier(repository, ref);
   },
 );

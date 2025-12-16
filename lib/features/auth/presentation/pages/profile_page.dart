@@ -73,22 +73,33 @@ class ProfilePage extends ConsumerWidget {
       child: Column(
         children: [
           // Profile Picture or Avatar
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.white,
-            backgroundImage: userData.photoURL != null
-                ? NetworkImage(userData.photoURL!)
-                : null,
-            child: userData.photoURL == null
-                ? Text(
-                    userData.initials,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(60),
+            child: userData.photoURL != null
+                ? CircleAvatar(
+                    radius: 60,
+                    backgroundImage: NetworkImage(userData.photoURL!),
                   )
-                : null,
+                : Image.asset(
+                    'assets/icons/Icon.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return CircleAvatar(
+                        radius: 60,
+                        backgroundColor: Colors.white,
+                        child: Text(
+                          userData.initials,
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
           
           const SizedBox(height: 16),

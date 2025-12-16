@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/constants/expense_constants.dart';
 import '../providers/dashboard_provider.dart';
+import '../../../services/currency_service.dart';
+import '../../settings/providers/currency_providers.dart';
 
 /// Category pie chart widget
-class CategoryPieChart extends StatefulWidget {
+class CategoryPieChart extends ConsumerStatefulWidget {
   final Map<String, double> categoryTotals;
   final double size;
 
   const CategoryPieChart({
     super.key,
     required this.categoryTotals,
-    this.size = 200,
+    this.size = 220,
   });
 
   @override
-  State<CategoryPieChart> createState() => _CategoryPieChartState();
+  ConsumerState<CategoryPieChart> createState() => _CategoryPieChartState();
 }
 
-class _CategoryPieChartState extends State<CategoryPieChart> {
+class _CategoryPieChartState extends ConsumerState<CategoryPieChart> {
   int touchedIndex = -1;
 
   @override
@@ -28,7 +31,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
     }
 
     return AspectRatio(
-      aspectRatio: 1.3,
+      aspectRatio: 1.5,
       child: Row(
         children: [
           Expanded(
@@ -50,7 +53,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                 ),
                 borderData: FlBorderData(show: false),
                 sectionsSpace: 0,
-                centerSpaceRadius: widget.size * 0.35,
+                centerSpaceRadius: 0,
                 sections: _showingSections(context),
               ),
             ),
@@ -128,12 +131,18 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                '\$${entry.value.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+              Consumer(
+                builder: (context, ref, child) {
+                  final currency = ref.watch(currencyNotifierProvider);
+                  final symbol = CurrencyService.getSymbol(currency);
+                  return Text(
+                    '$symbol${entry.value.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                },
               ),
             ],
           ),

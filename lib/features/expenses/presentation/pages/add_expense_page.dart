@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../services/currency_service.dart';
+import '../../../settings/providers/currency_providers.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/expense_constants.dart';
 import '../../providers/expense_form_provider.dart';
@@ -161,18 +163,24 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Amount Field
-                  CustomTextField(
-                    label: 'Amount *',
-                    hint: '0.00',
-                    controller: _amountController,
-                    keyboardType: TextInputType.number,
-                    prefixIcon: const Icon(Icons.attach_money),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                    ],
-                    validator: formNotifier.validateAmount,
-                    onChanged: (value) {
-                      formNotifier.setAmount(value);
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final currency = ref.watch(currencyNotifierProvider);
+                      final symbol = CurrencyService.getSymbol(currency);
+                      return CustomTextField(
+                        label: 'Amount *',
+                        hint: '0.00',
+                        controller: _amountController,
+                        keyboardType: TextInputType.number,
+                        prefixText: symbol,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                        ],
+                        validator: formNotifier.validateAmount,
+                        onChanged: (value) {
+                          formNotifier.setAmount(value);
+                        },
+                      );
                     },
                   ),
                   const SizedBox(height: 24),

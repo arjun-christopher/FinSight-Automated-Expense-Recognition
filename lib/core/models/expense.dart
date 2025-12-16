@@ -10,6 +10,7 @@ class Expense {
   final bool isRecurring;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String currency; // Currency code (USD, EUR, INR, etc.)
 
   Expense({
     this.id,
@@ -23,6 +24,7 @@ class Expense {
     this.isRecurring = false,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.currency = 'USD', // Default to USD
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -40,6 +42,7 @@ class Expense {
       'is_recurring': isRecurring ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'currency': currency,
     };
   }
 
@@ -59,6 +62,7 @@ class Expense {
       isRecurring: map['is_recurring'] == 1,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
+      currency: map['currency'] as String? ?? 'USD', // Fallback for old records
     );
   }
 
@@ -75,6 +79,7 @@ class Expense {
     bool? isRecurring,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? currency,
   }) {
     return Expense(
       id: id ?? this.id,
@@ -88,6 +93,7 @@ class Expense {
       isRecurring: isRecurring ?? this.isRecurring,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
+      currency: currency ?? this.currency,
     );
   }
 

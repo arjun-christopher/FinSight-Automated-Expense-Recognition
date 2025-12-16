@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -40,6 +40,7 @@ class DatabaseHelper {
         is_recurring INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
+        currency TEXT DEFAULT 'USD',
         FOREIGN KEY (receipt_image_id) REFERENCES receipt_images (id) ON DELETE SET NULL
       )
     ''');
@@ -96,8 +97,11 @@ class DatabaseHelper {
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     // Handle database migrations here
-    // Example:
-    // if (oldVersion < 2) {
+    if (oldVersion < 2) {
+      // Add currency column to existing expenses table
+      await db.execute('ALTER TABLE expenses ADD COLUMN currency TEXT DEFAULT "USD"');
+    }
+    // if (oldVersion < 3) {
     //   await db.execute('ALTER TABLE expenses ADD COLUMN new_field TEXT');
     // }
   }

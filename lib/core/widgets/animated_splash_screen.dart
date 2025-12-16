@@ -158,21 +158,6 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                       ),
 
                       const SizedBox(height: 48),
-
-                      // Loading indicator
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white.withOpacity(0.8),
-                            ),
-                            strokeWidth: 3,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -209,8 +194,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
       borderRadius: BorderRadius.circular(20),
       child: Image.asset(
         'assets/images/Logo.png',
-        width: 120,
-        height: 120,
+        width: 180,
+        height: 180,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           // Fallback: Custom painted logo

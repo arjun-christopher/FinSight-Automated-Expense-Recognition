@@ -8,6 +8,7 @@ import '../../../../core/models/classification_result.dart';
 import '../../../../core/constants/expense_constants.dart';
 import '../../../../services/ocr_workflow_service.dart';
 import '../../../../data/repositories/expense_repository.dart';
+import '../../../settings/providers/currency_providers.dart';
 import '../../../../core/providers/database_providers.dart';
 
 /// Provider for workflow result
@@ -112,6 +113,7 @@ class _ExpenseConfirmationPageState
     });
 
     try {
+      final currency = ref.read(currencyNotifierProvider);
       final expense = Expense(
         amount: double.parse(_amountController.text),
         category: _selectedCategory,
@@ -120,6 +122,7 @@ class _ExpenseConfirmationPageState
             ? _merchantController.text 
             : _notesController.text,
         paymentMethod: _selectedPaymentMethod,
+        currency: currency,
       );
 
       final repository = ref.read(expenseRepositoryProvider);
