@@ -161,8 +161,8 @@ class _ExpenseConfirmationPageState
           ),
         );
 
-        // Navigate back to home
-        context.go('/');
+        // Navigate back to receipt capture for next scan
+        context.go('/receipt-capture');
       }
     } catch (e) {
       if (mounted) {
@@ -275,20 +275,17 @@ class _ExpenseConfirmationPageState
   }
 
   Widget _buildConfidenceCard(WorkflowResult result) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final confidence = result.overallConfidence;
     final needsReview = result.needsReview;
     
-    Color cardColor = Colors.green.shade50;
-    Color iconColor = Colors.green;
-    IconData icon = Icons.check_circle;
-    String message = 'High confidence';
-    
-    if (needsReview) {
-      cardColor = Colors.orange.shade50;
-      iconColor = Colors.orange;
-      icon = Icons.warning;
-      message = 'Please review carefully';
-    }
+    Color cardColor = needsReview 
+        ? (isDark ? Colors.orange.shade900.withOpacity(0.3) : Colors.orange.shade50)
+        : (isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50);
+    Color iconColor = needsReview ? Colors.orange : Colors.green;
+    IconData icon = needsReview ? Icons.warning : Icons.check_circle;
+    String message = needsReview ? 'Please review carefully' : 'High confidence';
     
     return Card(
       color: cardColor,
@@ -331,6 +328,7 @@ class _ExpenseConfirmationPageState
   }
 
   Widget _buildImagePreview(String imagePath) {
+    final theme = Theme.of(context);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -342,10 +340,15 @@ class _ExpenseConfirmationPageState
               File(imagePath),
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
+                final errorTheme = Theme.of(context);
                 return Container(
-                  color: Colors.grey.shade200,
-                  child: const Center(
-                    child: Icon(Icons.broken_image, size: 48),
+                  color: errorTheme.colorScheme.surfaceVariant,
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image, 
+                      size: 48,
+                      color: errorTheme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 );
               },
@@ -355,9 +358,8 @@ class _ExpenseConfirmationPageState
             padding: const EdgeInsets.all(8),
             child: Text(
               'Receipt Image',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -367,6 +369,7 @@ class _ExpenseConfirmationPageState
   }
 
   Widget _buildAmountField(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return TextField(
       controller: _amountController,
       enabled: _isEditing,
@@ -378,7 +381,7 @@ class _ExpenseConfirmationPageState
           borderRadius: BorderRadius.circular(8),
         ),
         filled: true,
-        fillColor: _isEditing ? null : Colors.grey.shade100,
+        fillColor: _isEditing ? null : (isDark ? theme.colorScheme.surfaceVariant : Colors.grey.shade100),
       ),
       style: theme.textTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.bold,
@@ -387,6 +390,7 @@ class _ExpenseConfirmationPageState
   }
 
   Widget _buildMerchantField(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return TextField(
       controller: _merchantController,
       enabled: _isEditing,
@@ -397,28 +401,29 @@ class _ExpenseConfirmationPageState
           borderRadius: BorderRadius.circular(8),
         ),
         filled: true,
-        fillColor: _isEditing ? null : Colors.grey.shade100,
+        fillColor: _isEditing ? null : (isDark ? theme.colorScheme.surfaceVariant : Colors.grey.shade100),
       ),
     );
   }
 
   Widget _buildCategorySelector(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Category *',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.grey.shade700,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: theme.dividerColor),
             borderRadius: BorderRadius.circular(8),
-            color: _isEditing ? null : Colors.grey.shade100,
+            color: _isEditing ? null : (isDark ? theme.colorScheme.surfaceVariant : Colors.grey.shade100),
           ),
           child: DropdownButton<String>(
             value: _selectedCategory,
@@ -452,14 +457,15 @@ class _ExpenseConfirmationPageState
   }
 
   Widget _buildDateSelector(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return InkWell(
       onTap: _isEditing ? () => _selectDate(context) : null,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: theme.dividerColor),
           borderRadius: BorderRadius.circular(8),
-          color: _isEditing ? null : Colors.grey.shade100,
+          color: _isEditing ? null : (isDark ? theme.colorScheme.surfaceVariant : Colors.grey.shade100),
         ),
         child: Row(
           children: [
@@ -475,7 +481,7 @@ class _ExpenseConfirmationPageState
                   Text(
                     'Date',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   Text(
@@ -492,22 +498,23 @@ class _ExpenseConfirmationPageState
   }
 
   Widget _buildPaymentMethodSelector(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Payment Method',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.grey.shade700,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: theme.dividerColor),
             borderRadius: BorderRadius.circular(8),
-            color: _isEditing ? null : Colors.grey.shade100,
+            color: _isEditing ? null : (isDark ? theme.colorScheme.surfaceVariant : Colors.grey.shade100),
           ),
           child: DropdownButton<String?>(
             value: _selectedPaymentMethod,
@@ -540,6 +547,7 @@ class _ExpenseConfirmationPageState
   }
 
   Widget _buildNotesField(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return TextField(
       controller: _notesController,
       enabled: _isEditing,
@@ -551,14 +559,19 @@ class _ExpenseConfirmationPageState
           borderRadius: BorderRadius.circular(8),
         ),
         filled: true,
-        fillColor: _isEditing ? null : Colors.grey.shade100,
+        fillColor: _isEditing ? null : (isDark ? theme.colorScheme.surfaceVariant : Colors.grey.shade100),
       ),
     );
   }
 
   Widget _buildClassificationInfo(ClassificationResult classification) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final infoColor = isDark ? Colors.blue.shade700 : Colors.blue.shade700;
+    final bgColor = isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50;
+    
     return Card(
-      color: Colors.blue.shade50,
+      color: bgColor,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -566,13 +579,13 @@ class _ExpenseConfirmationPageState
           children: [
             Row(
               children: [
-                Icon(Icons.auto_awesome, color: Colors.blue.shade700),
+                Icon(Icons.auto_awesome, color: infoColor),
                 const SizedBox(width: 8),
                 Text(
                   'AI Classification',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
+                    color: infoColor,
                   ),
                 ),
               ],
@@ -585,14 +598,14 @@ class _ExpenseConfirmationPageState
                   'Method: ${classification.method.name}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.blue.shade600,
+                    color: infoColor,
                   ),
                 ),
                 Text(
                   '${(classification.confidence * 100).toStringAsFixed(1)}% confident',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.blue.shade600,
+                    color: infoColor,
                   ),
                 ),
               ],

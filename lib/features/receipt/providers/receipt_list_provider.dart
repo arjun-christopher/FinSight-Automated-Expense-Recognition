@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/receipt_image.dart';
+import '../../../core/models/expense.dart';
 import '../../../data/datasources/receipt_image_local_datasource.dart';
 import '../../../data/repositories/receipt_image_repository.dart';
+import '../../../data/repositories/expense_repository.dart';
+import '../../../core/providers/database_providers.dart';
 import '../../../services/receipt_storage_service.dart';
 
 // Provider for receipt storage service
@@ -21,9 +24,55 @@ final receiptImageRepositoryProvider = Provider<ReceiptImageRepository>((ref) {
   return ReceiptImageRepository(dataSource);
 });
 
+// Combined item for receipts and expenses
+class ReceiptExpenseItem {
+  final ReceiptImage? receipt;
+  final Expense? expense;
+  final DateTime date;
+  final String? merchant;
+  final double? amount;
+  final String? category;
+  final String? paymentMethod;
+  final bool hasReceipt;
+
+  ReceiptExpenseItem({
+    this.receipt,
+    this.expense,
+    required this.date,
+    this.merchant,
+    this.amount,
+    this.category,
+    this.paymentMethod,
+    required this.hasReceipt,
+  });
+
+  factory ReceiptExpenseItem.fromReceipt(ReceiptImage receipt) {
+    return ReceiptExpenseItem(
+      receipt: receipt,
+      date: receipt.extractedDate ?? receipt.createdAt,
+      merchant: receipt.extractedMerchant,
+      amount: receipt.extractedAmount,
+      hasReceipt: true,
+    );
+  }
+
+  factory ReceiptExpenseItem.fromExpense(Expense expense) {
+    return ReceiptExpenseItem(
+      expense: expense,
+      date: expense.date,
+      merchant: expense.description,
+      amount: expense.amount,
+      category: expense.category,
+      paymentMethod: expense.paymentMethod,
+      hasReceipt: false,
+    );
+  }
+}
+
 // State for receipt list screen
 class ReceiptListState {
   final List<ReceiptImage> receipts;
+  final List<Expense> expenses;
   final bool isLoading;
   final String? error;
   final ReceiptFilterType filterType;
@@ -32,6 +81,7 @@ class ReceiptListState {
 
   const ReceiptListState({
     this.receipts = const [],
+    this.expenses = const [],
     this.isLoading = false,
     this.error,
     this.filterType = ReceiptFilterType.all,
@@ -41,6 +91,7 @@ class ReceiptListState {
 
   ReceiptListState copyWith({
     List<ReceiptImage>? receipts,
+    List<Expense>? expenses,
     bool? isLoading,
     String? error,
     ReceiptFilterType? filterType,
@@ -49,6 +100,7 @@ class ReceiptListState {
   }) {
     return ReceiptListState(
       receipts: receipts ?? this.receipts,
+      expenses: expenses ?? this.expenses,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       filterType: filterType ?? this.filterType,
@@ -57,16 +109,40 @@ class ReceiptListState {
     );
   }
 
-  List<ReceiptImage> get filteredReceipts {
-    var result = receipts;
+  List<ReceiptExpenseItem> get filteredItems {
+    // Combine receipts and expenses without receipt images
+    final items = <ReceiptExpenseItem>[];
+    
+    // Add all receipts
+    for (final receipt in receipts) {
+      items.add(ReceiptExpenseItem.fromReceipt(receipt));
+    }
+    
+    // Add expenses that don't have receipt images
+    for (final expense in expenses) {
+      if (expense.receiptImageId == null) {
+        items.add(ReceiptExpenseItem.fromExpense(expense));
+      }
+    }
+    
+    // Sort by date descending
+    items.sort((a, b) => b.date.compareTo(a.date));
+    
+    var result = items;
 
     // Apply filter
     switch (filterType) {
       case ReceiptFilterType.processed:
-        result = result.where((r) => r.isProcessed).toList();
+        result = result.where((item) => item.receipt?.isProcessed ?? true).toList();
         break;
       case ReceiptFilterType.unprocessed:
-        result = result.where((r) => !r.isProcessed).toList();
+        result = result.where((item) => item.receipt?.isProcessed == false).toList();
+        break;
+      case ReceiptFilterType.withReceipt:
+        result = result.where((item) => item.hasReceipt).toList();
+        break;
+      case ReceiptFilterType.manualEntry:
+        result = result.where((item) => !item.hasReceipt).toList();
         break;
       case ReceiptFilterType.all:
         break;
@@ -75,11 +151,13 @@ class ReceiptListState {
     // Apply search
     if (searchQuery.isNotEmpty) {
       final query = searchQuery.toLowerCase();
-      result = result.where((receipt) {
-        final merchant = receipt.extractedMerchant?.toLowerCase() ?? '';
-        final amount = receipt.extractedAmount?.toString() ?? '';
-        final date = receipt.extractedDate?.toString() ?? '';
+      result = result.where((item) {
+        final merchant = item.merchant?.toLowerCase() ?? '';
+        final category = item.category?.toLowerCase() ?? '';
+        final amount = item.amount?.toString() ?? '';
+        final date = item.date.toString();
         return merchant.contains(query) ||
+            category.contains(query) ||
             amount.contains(query) ||
             date.contains(query);
       }).toList();
@@ -93,6 +171,8 @@ enum ReceiptFilterType {
   all,
   processed,
   unprocessed,
+  withReceipt,
+  manualEntry,
 }
 
 enum ReceiptViewMode {
@@ -103,19 +183,22 @@ enum ReceiptViewMode {
 // Receipt list provider
 class ReceiptListNotifier extends StateNotifier<ReceiptListState> {
   final ReceiptImageRepository _repository;
+  final ExpenseRepository _expenseRepository;
   final ReceiptStorageService _storageService;
 
-  ReceiptListNotifier(this._repository, this._storageService)
+  ReceiptListNotifier(this._repository, this._expenseRepository, this._storageService)
       : super(const ReceiptListState());
 
-  // Load all receipts
+  // Load all receipts and expenses
   Future<void> loadReceipts() async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
       final receipts = await _repository.getAllReceiptImages();
+      final expenses = await _expenseRepository.getAllExpenses();
       state = state.copyWith(
         receipts: receipts,
+        expenses: expenses,
         isLoading: false,
       );
     } catch (e) {
@@ -213,8 +296,9 @@ class ReceiptListNotifier extends StateNotifier<ReceiptListState> {
 final receiptListProvider =
     StateNotifierProvider<ReceiptListNotifier, ReceiptListState>((ref) {
   final repository = ref.watch(receiptImageRepositoryProvider);
+  final expenseRepository = ref.watch(expenseRepositoryProvider);
   final storageService = ref.watch(receiptStorageServiceProvider);
-  return ReceiptListNotifier(repository, storageService);
+  return ReceiptListNotifier(repository, expenseRepository, storageService);
 });
 
 // Individual receipt provider

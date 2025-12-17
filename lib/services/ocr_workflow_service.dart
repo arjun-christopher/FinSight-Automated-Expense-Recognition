@@ -5,13 +5,15 @@ import '../core/models/parsed_receipt.dart';
 import '../core/models/classification_result.dart';
 import '../core/models/ocr_result.dart';
 import '../core/config/app_config.dart';
+import 'base_ocr_service.dart';
 import 'ocr_service.dart';
+import 'ocr_service_cloud.dart';
 import 'receipt_parser.dart';
 import 'category_classifier.dart';
 
 /// Complete OCR workflow: Camera → OCR → Parser → Classifier
 class OcrWorkflowService {
-  final OcrService ocrService;
+  final BaseOcrService ocrService;
   final ReceiptParser parser;
   final CategoryClassifier? classifier;
 
@@ -62,52 +64,91 @@ class OcrWorkflowService {
       // Step 2: Parse - Convert text to structured data
       debugPrint('\n\ud83d\udcca WORKFLOW Step 2: Parse');
       onStepComplete?.call(WorkflowStep.parse);
-      final parsedReceipt = await parser.parse(ocrText);
-      debugPrint('  Merchant: ${parsedReceipt.merchantName ?? "N/A"}');
-      debugPrint('  Amount: \$${parsedReceipt.totalAmount ?? "N/A"}');
       
+      ParsedReceipt parsedReceipt;
+      try {
+        parsedReceipt = await parser.parse(ocrText);
+        debugPrint('  Merchant: ${parsedReceipt.merchantName ?? "N/A"}');
+        debugPrint('  Amount: \$${parsedReceipt.totalAmount ?? "N/A"}');
+      } catch (e) {
+        debugPrint('  ⚠️ Parser error: $e');
+        // Create minimal receipt if parsing fails
+        parsedReceipt = ParsedReceipt.empty(
+          rawText: ocrText,
+          errorMessage: e.toString(),
+        );
+        // Override with minimal values
+        parsedReceipt = ParsedReceipt(
+          merchantName: 'Unknown Merchant',
+          totalAmount: 0.0,
+          date: DateTime.now(),
+          items: [],
+          confidence: 0.5,
+          rawText: ocrText,
+          metadata: parsedReceipt.metadata,
+        );
+      }
+      
+      // If no amount found, use 0.0 instead of failing
       if (parsedReceipt.totalAmount == null) {
-        throw WorkflowException(
-          'Could not extract total amount from receipt',
-          step: WorkflowStep.parse,
+        debugPrint('  ⚠️ No amount found, using 0.0');
+        parsedReceipt = ParsedReceipt(
+          merchantName: parsedReceipt.merchantName ?? 'Unknown',
+          totalAmount: 0.0,
+          date: parsedReceipt.date ?? DateTime.now(),
+          items: parsedReceipt.items,
+          currency: parsedReceipt.currency,
+          paymentMethod: parsedReceipt.paymentMethod,
+          confidence: parsedReceipt.confidence,
+          rawText: parsedReceipt.rawText,
+          metadata: parsedReceipt.metadata,
         );
       }
 
-      // Step 3: Classify - Determine category (enhanced rule-based)
-      ClassificationResult? classification;
+      // Step 3: Classify - Determine category (rule-based)
+      debugPrint('\n🤖 WORKFLOW Step 3: Classify');
+      onStepComplete?.call(WorkflowStep.classify);
+      
+      ClassificationResult classification;
       if (useClassifier && classifier != null) {
-        debugPrint('\n\ud83e\udd16 WORKFLOW Step 3: Classify');
-        onStepComplete?.call(WorkflowStep.classify);
-        
         try {
           final classifyStart = stopwatch.elapsedMilliseconds;
-          // Enhanced rule-based classification with combined rules
           classification = await classifier!.classify(
             merchantName: parsedReceipt.merchantName ?? 'Unknown',
-            description: parsedReceipt.items?.map((i) => i.name).join(', '),
+            description: parsedReceipt.items.map((i) => i.name).join(', '),
             amount: parsedReceipt.totalAmount,
           ).timeout(
-            const Duration(seconds: 3),
+            const Duration(seconds: 2),
             onTimeout: () {
-              final elapsed = stopwatch.elapsedMilliseconds - classifyStart;
-              debugPrint('\u23f1\ufe0f  Classification TIMEOUT after ${elapsed}ms, using default');
+              debugPrint('⏱️ Classification timeout, using default');
               return ClassificationResult.fromRule(
                 category: 'Shopping',
                 confidence: 0.3,
                 candidateScores: {'Shopping': 0.3},
-                processingTimeMs: 3000,
+                processingTimeMs: 2000,
               );
             },
           );
-          
           final classifyTime = stopwatch.elapsedMilliseconds - classifyStart;
-          debugPrint('  Category: ${classification?.category ?? "N/A"}');
-          debugPrint('  Confidence: ${((classification?.confidence ?? 0) * 100).toStringAsFixed(1)}%');
+          debugPrint('  Category: ${classification.category}');
+          debugPrint('  Confidence: ${(classification.confidence * 100).toStringAsFixed(1)}%');
           debugPrint('  Time: ${classifyTime}ms');
         } catch (e) {
-          // Classification failure is not critical
-          debugPrint('\u274c Classification failed: $e');
+          debugPrint('  ⚠️ Classification error: $e');
+          classification = ClassificationResult.fromRule(
+            category: 'Shopping',
+            confidence: 0.3,
+            candidateScores: {'Shopping': 0.3},
+            processingTimeMs: 0,
+          );
         }
+      } else {
+        classification = ClassificationResult.fromRule(
+          category: 'Shopping',
+          confidence: 0.3,
+          candidateScores: {'Shopping': 0.3},
+          processingTimeMs: 0,
+        );
       }
 
       onStepComplete?.call(WorkflowStep.complete);
@@ -363,18 +404,20 @@ class WorkflowException implements Exception {
 
 /// Factory for creating workflow service with different configurations
 class OcrWorkflowFactory {
-  /// Create production workflow with rule-based classification
+  /// Create production workflow with CLOUD OCR
   /// 
-  /// Uses enhanced rule-based classification with combined rules:
-  /// - Keyword matching
-  /// - Amount-based patterns
-  /// - Context patterns (merchant + description + time/location/action)
+  /// PRODUCTION APPROACH:
+  /// - Cloud OCR API (OCR.space)
+  /// - Rule-based classification
+  /// - Lenient parsing (no failures on missing data)
   static OcrWorkflowService createProductionWorkflow() {
     debugPrint('\n🏭 Creating production workflow...');
-    debugPrint('  ⚡ Using enhanced rule-based classification');
+    debugPrint('  ☁️ Using CLOUD OCR (OCR.space API)');
+    debugPrint('  🎯 Rule-based classification');
+    debugPrint('  🔧 Lenient parsing');
     
     return OcrWorkflowService(
-      ocrService: OcrService(),
+      ocrService: OcrServiceCloud(),
       parser: ReceiptParser(),
       classifier: CategoryClassifier(),
     );

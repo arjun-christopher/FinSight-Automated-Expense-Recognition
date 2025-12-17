@@ -332,8 +332,11 @@ class _ProcessingDialogState extends State<ProcessingDialog>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.dialogBackgroundColor,
       elevation: 8,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
@@ -344,6 +347,10 @@ class _ProcessingDialogState extends State<ProcessingDialog>
           maxWidth: 340,
         ),
         padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: theme.dialogBackgroundColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -352,22 +359,22 @@ class _ProcessingDialogState extends State<ProcessingDialog>
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  color: theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.receipt_long,
                   size: 48,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
             const SizedBox(height: 24),
             Text(
               'Processing Receipt',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: theme.colorScheme.onSurface,
                   ),
             ),
             const SizedBox(height: 16),
@@ -376,8 +383,8 @@ class _ProcessingDialogState extends State<ProcessingDialog>
               child: Text(
                 _steps[_currentStep],
                 key: ValueKey(_currentStep),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.black87,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.8),
                       fontSize: 15,
                     ),
                 textAlign: TextAlign.center,
@@ -389,12 +396,9 @@ class _ProcessingDialogState extends State<ProcessingDialog>
               child: LinearProgressIndicator(
                 value: (_currentStep + 1) / _steps.length,
                 minHeight: 8,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withOpacity(0.15),
+                backgroundColor: theme.colorScheme.primary.withOpacity(isDark ? 0.25 : 0.15),
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).colorScheme.primary,
+                  theme.colorScheme.primary,
                 ),
               ),
             ),
@@ -403,8 +407,8 @@ class _ProcessingDialogState extends State<ProcessingDialog>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: _elapsedSeconds > 15 
-                    ? Colors.orange.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.08),
+                    ? Colors.orange.withOpacity(isDark ? 0.2 : 0.1)
+                    : theme.colorScheme.surfaceVariant.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -414,13 +418,17 @@ class _ProcessingDialogState extends State<ProcessingDialog>
                   Icon(
                     Icons.access_time,
                     size: 16,
-                    color: _elapsedSeconds > 15 ? Colors.orange : Colors.grey[600],
+                    color: _elapsedSeconds > 15 
+                        ? Colors.orange 
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     '${_elapsedSeconds}s',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _elapsedSeconds > 15 ? Colors.orange[700] : Colors.grey[700],
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                          color: _elapsedSeconds > 15 
+                              ? Colors.orange 
+                              : theme.colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
@@ -432,8 +440,10 @@ class _ProcessingDialogState extends State<ProcessingDialog>
               _elapsedSeconds > 15 
                   ? 'Taking longer than usual...'
                   : 'Usually takes 5-15 seconds',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _elapsedSeconds > 15 ? Colors.orange[700] : Colors.grey[600],
+              style: theme.textTheme.bodySmall?.copyWith(
+                    color: _elapsedSeconds > 15 
+                        ? Colors.orange 
+                        : theme.colorScheme.onSurfaceVariant,
                     fontStyle: FontStyle.italic,
                     fontSize: 12,
                   ),

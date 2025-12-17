@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -69,94 +70,153 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
     
     if (imagePath == null) return;
 
-    // Show processing dialog with semi-transparent barrier
+    debugPrint('\n' + '='*70);
+    debugPrint('📸 STARTING RECEIPT PROCESSING');
+    debugPrint('Image: $imagePath');
+    debugPrint('Time: ${DateTime.now()}');
+    debugPrint('='*70 + '\n');
+
+    // Show processing dialog
     if (!mounted) return;
+    
+    // Store dialog context for reliable closing
+    BuildContext? dialogContext;
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black54, // Semi-transparent so UI behind is visible
-      builder: (context) => const ProcessingDialog(),
+      barrierColor: Colors.black54,
+      builder: (ctx) {
+        dialogContext = ctx;
+        return const ProcessingDialog();
+      },
     );
 
+    final completer = Completer<void>();
     bool dialogDismissed = false;
+    Timer? hardTimeoutTimer;
     
-    void safeCloseDialog() {
-      if (!dialogDismissed && mounted) {
+    void safeCloseDialog([String reason = 'normal']) {
+      if (!dialogDismissed) {
+        dialogDismissed = true;
+        debugPrint('🔄 Closing dialog ($reason)');
+        
         try {
-          dialogDismissed = true;
-          Navigator.of(context).pop();
-          debugPrint('✓ Dialog closed');
+          // Use stored dialog context for reliable closing
+          if (dialogContext != null && dialogContext!.mounted) {
+            Navigator.of(dialogContext!).pop();
+            debugPrint('✅ Dialog closed via dialogContext');
+          } else if (mounted) {
+            // Fallback to main context
+            Navigator.of(context).pop();
+            debugPrint('✅ Dialog closed via main context');
+          }
         } catch (e) {
           debugPrint('⚠️ Error closing dialog: $e');
         }
       }
     }
     
-    // Hard timeout safeguard - force close dialog after 25 seconds
-    final hardTimeoutTimer = Future.delayed(const Duration(seconds: 25), () {
-      if (!dialogDismissed) {
-        debugPrint('🚨 HARD TIMEOUT: Forcefully closing dialog after 25 seconds');
-        safeCloseDialog();
+    // ABSOLUTE GUARANTEE: Dialog WILL close after 40 seconds
+    hardTimeoutTimer = Timer(const Duration(seconds: 40), () {
+      if (!completer.isCompleted) {
+        debugPrint('\n' + '🚨'*35);
+        debugPrint('🚨 ABSOLUTE TIMEOUT: 40 seconds elapsed - FORCE CLOSING');
+        debugPrint('🚨'*35 + '\n');
+        safeCloseDialog('hard-timeout');
         if (mounted) {
-          _showErrorSnackbar('Processing took too long and was cancelled. Please try again with a clearer image.');
+          _showErrorSnackbar('Something is blocking the workflow. Check logs.');
         }
+        if (!completer.isCompleted) completer.complete();
       }
     });
 
     try {
-      // Create production workflow with enhanced rule-based classification
+      debugPrint('🏭 Creating workflow...');
       final workflow = OcrWorkflowFactory.createProductionWorkflow();
+      debugPrint('✓ Workflow created');
 
-      // Process receipt with aggressive timeout (20 seconds max)
       final stopwatch = Stopwatch()..start();
-      final result = await workflow.processReceipt(
+      int stepCount = 0;
+      
+      debugPrint('\n🏁 Starting processReceipt()...');
+      final processFuture = workflow.processReceipt(
         imagePath: imagePath,
         useClassifier: true,
         onStepComplete: (step) {
-          debugPrint('✓ Completed: ${step.name} [${stopwatch.elapsedMilliseconds}ms]');
+          stepCount++;
+          debugPrint('👉 Step $stepCount: ${step.name} [${stopwatch.elapsedMilliseconds}ms]');
         },
-      ).timeout(
-        const Duration(seconds: 20),
+      );
+      
+      debugPrint('⏳ Awaiting result with 35s timeout (Cloud OCR)...');
+      final result = await processFuture.timeout(
+        const Duration(seconds: 35),
         onTimeout: () {
-          stopwatch.stop();
-          debugPrint('❌ Timeout after ${stopwatch.elapsedMilliseconds}ms');
-          throw Exception('Processing timed out after 20 seconds. Please try with a clearer, well-lit receipt image.');
+          debugPrint('⏱️ Timeout after ${stopwatch.elapsedMilliseconds}ms');
+          throw TimeoutException('Processing exceeded 35 seconds');
         },
       );
 
       stopwatch.stop();
-      debugPrint('✓ Processing completed in ${stopwatch.elapsedMilliseconds}ms');
+      hardTimeoutTimer?.cancel();
+      debugPrint('\n🎉 Processing COMPLETED in ${stopwatch.elapsedMilliseconds}ms');
+      debugPrint('Success: ${result.success}');
       
-      // Close processing dialog
-      safeCloseDialog();
+      // CRITICAL: Close dialog BEFORE navigation
+      debugPrint('🔒 Closing dialog before navigation...');
+      safeCloseDialog('success');
+      
+      // Wait a bit for dialog to close
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      if (!completer.isCompleted) completer.complete();
 
       if (!mounted) return;
 
       if (result.success) {
-        debugPrint('✓ Navigating to confirmation screen');
-        // Navigate to confirmation screen
-        context.push('/expense-confirmation', extra: result);
-        
-        // Reset capture state
-        ref.read(receiptCaptureProvider.notifier).reset();
+        debugPrint('🧑‍💻 Navigating to confirmation...');
+        await context.push('/expense-confirmation', extra: result);
+        debugPrint('✅ Navigation complete');
       } else {
-        debugPrint('❌ Processing failed: ${result.errorMessage}');
-        // Show error
-        _showErrorSnackbar('Processing failed: ${result.errorMessage ?? "Unknown error"}');
+        _showErrorSnackbar(result.errorMessage ?? 'Processing failed');
       }
-    } catch (e) {
-      debugPrint('❌ Exception during processing: $e');
-      // Close processing dialog
-      safeCloseDialog();
+    } on TimeoutException catch (_) {
+      hardTimeoutTimer?.cancel();
+      debugPrint('\n⏱️ TIMEOUT CAUGHT');
+      safeCloseDialog('timeout');
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!completer.isCompleted) completer.complete();
+      if (mounted) {
+        _showErrorSnackbar('Processing timed out. Try with a clearer image.');
+      }
+    } catch (e, stackTrace) {
+      hardTimeoutTimer?.cancel();
+      debugPrint('\n❌ EXCEPTION CAUGHT: $e');
+      debugPrint('Stack: ${stackTrace.toString().split('\n').take(5).join('\n')}');
+      safeCloseDialog('error');
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!completer.isCompleted) completer.complete();
+      if (mounted) {
+        _showErrorSnackbar('Error: ${e.toString().replaceAll("Exception: ", "").substring(0, 100)}');
+      }
+    } finally {
+      debugPrint('\n' + '='*70);
+      debugPrint('🏁 RECEIPT PROCESSING FINISHED');
+      debugPrint('Dialog dismissed: $dialogDismissed');
+      debugPrint('='*70 + '\n');
       
-      if (!mounted) return;
+      // FORCE close dialog in finally block
+      if (!dialogDismissed) {
+        debugPrint('⚠️ Dialog still open in finally block! Force closing...');
+        safeCloseDialog('finally');
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
       
-      // Show error with helpful message
-      final errorMessage = e.toString().contains('timed out')
-          ? e.toString()
-          : 'Error processing receipt: ${e.toString().replaceAll("Exception: ", "")}';
-      _showErrorSnackbar(errorMessage);
+      hardTimeoutTimer?.cancel();
+      if (!completer.isCompleted) completer.complete();
     }
+    
+    await completer.future;
   }
 
   void _showErrorSnackbar(String message) {

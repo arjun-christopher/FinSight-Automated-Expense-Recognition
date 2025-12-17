@@ -1,50 +1,163 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image/image.dart' as img;
 import '../core/models/ocr_result.dart';
+import 'base_ocr_service.dart';
 
 /// Service class for performing Optical Character Recognition (OCR) on images
 /// using Google ML Kit Text Recognition.
-class OcrService {
-  /// Text recognizer instance
-  late final TextRecognizer _textRecognizer;
+class OcrService extends BaseOcrService {
+  /// Text recognizer instance (can be recreated if it gets stuck)
+  TextRecognizer? _textRecognizer;
 
   /// Whether the service has been initialized
   bool _isInitialized = false;
+  
+  /// Track the last time we recreated the recognizer
+  DateTime? _lastRecreation;
 
   OcrService() {
     _initialize();
   }
 
-  /// Initialize the text recognizer
-  void _initialize() {
-    // Use default Latin script recognizer
-    // For other scripts, use: TextRecognizer(script: TextRecognitionScript.chinese)
-    _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    _isInitialized = true;
+  /// Initialize or reinitialize the text recognizer
+  Future<void> _initialize() async {
+    try {
+      // Close existing recognizer if it exists
+      if (_textRecognizer != null) {
+        debugPrint('🔄 OCR: Closing existing TextRecognizer before reinitializing');
+        await _textRecognizer!.close();
+        _textRecognizer = null;
+        // Small delay to ensure native cleanup
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      
+      debugPrint('🎯 OCR: Creating new TextRecognizer (Latin script)');
+      _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      _isInitialized = true;
+      _lastRecreation = DateTime.now();
+      debugPrint('✅ OCR: TextRecognizer initialized successfully');
+    } catch (e) {
+      debugPrint('❌ OCR: Failed to initialize TextRecognizer: $e');
+      _isInitialized = false;
+    }
   }
 
   /// Check if the service is ready to use
-  bool get isInitialized => _isInitialized;
+  bool get isInitialized => _isInitialized && _textRecognizer != null;
 
-  /// Process an image and extract text using OCR
+  /// Preprocess image to optimize for OCR
+  /// Resizes large images and ensures proper format
+  Future<String> _preprocessImage(String imagePath) async {
+    debugPrint('🖼️  OCR: Preprocessing image...');
+    
+    final imageFile = File(imagePath);
+    final bytes = await imageFile.readAsBytes();
+    
+    // Decode image
+    img.Image? image;
+    try {
+      image = img.decodeImage(bytes);
+    } catch (e) {
+      debugPrint('⚠️  OCR: Could not decode image for preprocessing: $e');
+      return imagePath; // Return original if can't decode
+    }
+    
+    if (image == null) {
+      debugPrint('⚠️  OCR: Image decoded to null, using original');
+      return imagePath;
+    }
+    
+    debugPrint('   Original size: ${image.width}x${image.height}');
+    
+    // Resize if image is too large (max 2048px on longest side)
+    const maxDimension = 2048;
+    if (image.width > maxDimension || image.height > maxDimension) {
+      debugPrint('   📏 Resizing large image...');
+      final scaleFactor = maxDimension / (image.width > image.height ? image.width : image.height);
+      final newWidth = (image.width * scaleFactor).round();
+      final newHeight = (image.height * scaleFactor).round();
+      
+      image = img.copyResize(image, width: newWidth, height: newHeight);
+      debugPrint('   ✓ Resized to: ${image.width}x${image.height}');
+    }
+    
+    // Save preprocessed image to temporary file
+    final tempDir = imageFile.parent;
+    final tempPath = '${tempDir.path}/temp_preprocessed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final tempFile = File(tempPath);
+    
+    // Encode as JPEG with 85% quality
+    final encodedBytes = img.encodeJpg(image, quality: 85);
+    await tempFile.writeAsBytes(encodedBytes);
+    
+    debugPrint('   ✓ Preprocessed image saved: ${(encodedBytes.length / 1024).toStringAsFixed(1)} KB');
+    return tempPath;
+  }
+
+  /// Process an image and extract text using OCR with retry logic
   ///
   /// [imagePath] - Absolute path to the image file
   ///
   /// Returns an [OcrResult] containing extracted text and metadata
-  ///
-  /// Throws [OcrException] if processing fails
-  Future<OcrResult> recognizeText(String imagePath) async {
-    final overallStopwatch = Stopwatch()..start();
-    debugPrint('🔍 OCR: Starting text recognition for: $imagePath');
+  Future<OcrResult> recognizeText(String imagePath, {int maxRetries = 2}) async {
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        debugPrint('\n🔄 OCR: Retry attempt $attempt of $maxRetries');
+        // Wait before retrying
+        await Future.delayed(Duration(milliseconds: 500 * attempt));
+      }
+      
+      final result = await _recognizeTextInternal(imagePath, attempt);
+      
+      // If successful, return immediately
+      if (result.success) {
+        return result;
+      }
+      
+      // If it's the last attempt, return the failure
+      if (attempt == maxRetries) {
+        return result;
+      }
+      
+      // If failed due to timeout, recreate recognizer before retry
+      if (result.errorMessage?.contains('timed out') == true) {
+        debugPrint('⚠️  OCR: Timeout detected, recreating recognizer...');
+        await _initialize();
+      }
+    }
     
-    if (!_isInitialized) {
-      debugPrint('❌ OCR: Service not initialized');
+    return OcrResult.failure(errorMessage: 'OCR failed after $maxRetries retries');
+  }
+
+  /// Internal method that performs actual OCR processing
+  Future<OcrResult> _recognizeTextInternal(String imagePath, int attemptNumber) async {
+    final overallStopwatch = Stopwatch()..start();
+    debugPrint('\n' + '🔍'*30);
+    debugPrint('🔍 OCR: Starting text recognition (attempt ${attemptNumber + 1})');
+    debugPrint('Path: $imagePath');
+    debugPrint('Initialized: $_isInitialized');
+    debugPrint('Recognizer exists: ${_textRecognizer != null}');
+    if (_lastRecreation != null) {
+      debugPrint('Last recreation: ${DateTime.now().difference(_lastRecreation!).inSeconds}s ago');
+    }
+    debugPrint('🔍'*30);
+    
+    // STRATEGY: Force recreate recognizer for EVERY call to avoid stale state
+    debugPrint('🔄 OCR: FORCE RECREATING TextRecognizer (fresh instance strategy)');
+    await _initialize();
+    
+    if (!_isInitialized || _textRecognizer == null) {
       return OcrResult.failure(
-        errorMessage: 'OCR service not initialized',
+        errorMessage: 'OCR service failed to initialize',
       );
     }
 
+    String? preprocessedPath;
+    
     try {
       // Validate image file exists
       debugPrint('📂 OCR: Checking if file exists...');
@@ -71,32 +184,86 @@ class OcrService {
       }
       
       // Create InputImage from file path
-      debugPrint('🖼️  OCR: Creating InputImage...');
-      final inputImage = InputImage.fromFilePath(imagePath);
+      debugPrint('🖼️  OCR: Creating InputImage from file...');
+      
+      // Preprocess image: resize if needed, optimize format
+      debugPrint('🔧 OCR: Preprocessing image...');
+      try {
+        preprocessedPath = await _preprocessImage(imagePath);
+        debugPrint('✓ OCR: Using preprocessed image: $preprocessedPath');
+      } catch (e) {
+        debugPrint('⚠️  OCR: Preprocessing failed, using original: $e');
+        preprocessedPath = imagePath;
+      }
+      
+      InputImage? inputImage;
+      try {
+        inputImage = InputImage.fromFilePath(preprocessedPath);
+        debugPrint('✓ OCR: InputImage created successfully');
+      } catch (e) {
+        debugPrint('❌ OCR: Failed to create InputImage: $e');
+        return OcrResult.failure(
+          errorMessage: 'Failed to create InputImage: $e',
+        );
+      }
 
-      // Perform text recognition with 15 second timeout
-      // Note: The timeout might not interrupt the native ML Kit process,
-      // but will ensure the Dart code doesn't hang indefinitely
-      debugPrint('⏳ OCR: Processing image (max 15 seconds)...');
+      // Perform text recognition with AGGRESSIVE timeout (5 seconds)
+      // STRATEGY: Shorter timeout, faster failure, retry with fresh recognizer
+      debugPrint('⏳ OCR: Calling native ML Kit processImage() (max 5 seconds)...');
+      debugPrint('⏳ OCR: Starting at: ${DateTime.now()}');
       final sw = Stopwatch()..start();
       
-      RecognizedText recognizedText;
+      RecognizedText? recognizedText;
+      bool processingCompleted = false;
+      
       try {
-        recognizedText = await _textRecognizer.processImage(inputImage).timeout(
-          const Duration(seconds: 15),
-          onTimeout: () {
-            sw.stop();
-            debugPrint('⏱️  OCR: TIMEOUT after ${sw.elapsedMilliseconds}ms');
-            throw Exception('OCR processing timed out after 15 seconds. The image may be too large or complex.');
-          },
+        // Use aggressive 5-second timeout
+        recognizedText = await _textRecognizer!
+            .processImage(inputImage)
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                sw.stop();
+                debugPrint('⏱️  OCR: TIMEOUT after ${sw.elapsedMilliseconds}ms');
+                debugPrint('⏱️  OCR: Native call did not complete - will retry with fresh recognizer');
+                throw TimeoutException('ML Kit timeout');
+              },
+            ).then((result) {
+              processingCompleted = true;
+              return result;
+            });
+        
+        sw.stop();
+        debugPrint('✓ OCR: Completed in ${sw.elapsedMilliseconds}ms');
+        
+      } on TimeoutException catch (e) {
+        debugPrint('❌ OCR: Timeout - destroying recognizer for retry');
+        // Force cleanup for next attempt
+        try {
+          await _textRecognizer?.close();
+          _textRecognizer = null;
+          _isInitialized = false;
+        } catch (e) {
+          debugPrint('⚠️  OCR: Error during cleanup: $e');
+        }
+        return OcrResult.failure(
+          errorMessage: 'OCR timed out after ${sw.elapsedMilliseconds}ms',
         );
       } catch (e) {
         sw.stop();
-        debugPrint('❌ OCR: processImage failed after ${sw.elapsedMilliseconds}ms');
-        throw e;
+        debugPrint('❌ OCR: Exception after ${sw.elapsedMilliseconds}ms: $e');
+        return OcrResult.failure(
+          errorMessage: 'OCR failed: ${e.toString().replaceAll("Exception: ", "")}',
+        );
       }
       
       sw.stop();
+      
+      if (recognizedText == null) {
+        debugPrint('❌ OCR: recognizedText is null');
+        throw Exception('ML Kit returned null result');
+      }
+      
       debugPrint('✓ OCR: Processing completed in ${sw.elapsedMilliseconds}ms');
 
       // Extract text and metadata
@@ -129,6 +296,19 @@ class OcrService {
       return OcrResult.failure(
         errorMessage: 'OCR processing failed: ${e.toString()}',
       );
+    } finally {
+      // Cleanup preprocessed file if it was created
+      if (preprocessedPath != null && preprocessedPath != imagePath) {
+        try {
+          final tempFile = File(preprocessedPath);
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+            debugPrint('🗑️  OCR: Cleaned up preprocessed file');
+          }
+        } catch (e) {
+          debugPrint('⚠️  OCR: Could not delete preprocessed file: $e');
+        }
+      }
     }
   }
 
@@ -244,8 +424,14 @@ class OcrService {
   ///
   /// Should be called when the service is no longer needed
   Future<void> dispose() async {
-    if (_isInitialized) {
-      await _textRecognizer.close();
+    if (_textRecognizer != null) {
+      try {
+        await _textRecognizer!.close();
+        debugPrint('✅ OCR: TextRecognizer disposed successfully');
+      } catch (e) {
+        debugPrint('⚠️  OCR: Error disposing TextRecognizer: $e');
+      }
+      _textRecognizer = null;
       _isInitialized = false;
     }
   }

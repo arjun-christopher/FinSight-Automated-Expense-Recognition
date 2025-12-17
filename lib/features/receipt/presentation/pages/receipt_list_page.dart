@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/receipt_list_provider.dart';
 import '../../../../core/models/receipt_image.dart';
+import '../../../../core/models/expense.dart';
 
 class ReceiptListPage extends ConsumerStatefulWidget {
   const ReceiptListPage({super.key});
@@ -129,6 +130,22 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
                   context,
                   'All',
                   ReceiptFilterType.all,
+                  state.filterType,
+                  notifier,
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  context,
+                  'With Receipt',
+                  ReceiptFilterType.withReceipt,
+                  state.filterType,
+                  notifier,
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  context,
+                  'Manual Entry',
+                  ReceiptFilterType.manualEntry,
                   state.filterType,
                   notifier,
                 ),
@@ -266,12 +283,12 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
     return RefreshIndicator(
       onRefresh: () => notifier.refreshReceipts(),
       child: state.viewMode == ReceiptViewMode.grid
-          ? _buildGridView(state.filteredReceipts)
-          : _buildListView(state.filteredReceipts),
+          ? _buildGridView(state.filteredItems)
+          : _buildListView(state.filteredItems),
     );
   }
 
-  Widget _buildGridView(List<ReceiptImage> receipts) {
+  Widget _buildGridView(List<ReceiptExpenseItem> items) {
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -280,76 +297,105 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
         mainAxisSpacing: 16,
         childAspectRatio: 0.75,
       ),
-      itemCount: receipts.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        return _buildGridItem(context, receipts[index]);
+        return _buildGridItem(context, items[index]);
       },
     );
   }
 
-  Widget _buildListView(List<ReceiptImage> receipts) {
+  Widget _buildListView(List<ReceiptExpenseItem> items) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: receipts.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        return _buildListItem(context, receipts[index]);
+        return _buildListItem(context, items[index]);
       },
     );
   }
 
-  Widget _buildGridItem(BuildContext context, ReceiptImage receipt) {
+  Widget _buildGridItem(BuildContext context, ReceiptExpenseItem item) {
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 2,
       child: InkWell(
         onTap: () {
-          context.push('/receipt/detail/${receipt.id}');
+          if (item.hasReceipt && item.receipt != null) {
+            context.push('/receipt/detail/${item.receipt!.id}');
+          } else if (item.expense != null) {
+            _showExpenseDetailDialog(context, item.expense!);
+          }
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image preview
+            // Image preview or placeholder
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildReceiptImage(receipt.filePath),
-                  // Status badge
-                  if (receipt.isProcessed)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Processed',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                  item.hasReceipt
+                      ? _buildReceiptImage(item.receipt!.filePath)
+                      : Container(
+                          color: Colors.grey[300],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.receipt_long,
+                                size: 48,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Manual Entry',
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                  // Status badge
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: item.hasReceipt
+                            ? (item.receipt!.isProcessed ? Colors.green : Colors.orange)
+                            : Colors.blue,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        item.hasReceipt
+                            ? (item.receipt!.isProcessed ? 'Receipt' : 'Pending')
+                            : 'Manual',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
-            // Receipt info
+            // Item info
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (receipt.extractedMerchant != null)
+                  if (item.merchant != null)
                     Text(
-                      receipt.extractedMerchant!,
+                      item.merchant!,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -357,22 +403,31 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  if (receipt.extractedAmount != null)
+                  if (item.category != null)
                     Text(
-                      '\$${receipt.extractedAmount!.toStringAsFixed(2)}',
+                      item.category!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  if (item.amount != null)
+                    Text(
+                      '\$${item.amount!.toStringAsFixed(2)}',
                       style: TextStyle(
                         color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  if (receipt.extractedDate != null)
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(receipt.extractedDate!),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                  Text(
+                    DateFormat('MMM dd, yyyy').format(item.date),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
                     ),
+                  ),
                 ],
               ),
             ),
@@ -382,74 +437,112 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
     );
   }
 
-  Widget _buildListItem(BuildContext context, ReceiptImage receipt) {
+  Widget _buildListItem(BuildContext context, ReceiptExpenseItem item) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: () {
-          context.push('/receipt/detail/${receipt.id}');
+          if (item.hasReceipt && item.receipt != null) {
+            context.push('/receipt/detail/${item.receipt!.id}');
+          } else if (item.expense != null) {
+            _showExpenseDetailDialog(context, item.expense!);
+          }
         },
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
             children: [
-              // Thumbnail
+              // Thumbnail or icon
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: SizedBox(
                   width: 80,
                   height: 80,
-                  child: _buildReceiptImage(receipt.filePath),
+                  child: item.hasReceipt
+                      ? _buildReceiptImage(item.receipt!.filePath)
+                      : Container(
+                          color: Colors.grey[300],
+                          child: Icon(
+                            Icons.receipt_long,
+                            size: 40,
+                            color: Colors.grey[600],
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
-              // Receipt info
+              // Item info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (receipt.extractedMerchant != null)
+                    if (item.merchant != null)
                       Text(
-                        receipt.extractedMerchant!,
+                        item.merchant!,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    if (receipt.extractedAmount != null)
+                    if (item.category != null)
                       Text(
-                        '\$${receipt.extractedAmount!.toStringAsFixed(2)}',
+                        item.category!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    if (item.amount != null)
+                      Text(
+                        '\$${item.amount!.toStringAsFixed(2)}',
                         style: TextStyle(
                           color: Theme.of(context).primaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                         ),
                       ),
-                    if (receipt.extractedDate != null)
-                      Text(
-                        DateFormat('MMM dd, yyyy').format(receipt.extractedDate!),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                        ),
+                    Text(
+                      DateFormat('MMM dd, yyyy').format(item.date),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
                       ),
+                    ),
                     Row(
                       children: [
                         Icon(
-                          receipt.isProcessed ? Icons.check_circle : Icons.pending,
+                          item.hasReceipt 
+                              ? (item.receipt!.isProcessed ? Icons.check_circle : Icons.pending)
+                              : Icons.edit,
                           size: 16,
-                          color: receipt.isProcessed ? Colors.green : Colors.orange,
+                          color: item.hasReceipt
+                              ? (item.receipt!.isProcessed ? Colors.green : Colors.orange)
+                              : Colors.blue,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          receipt.isProcessed ? 'Processed' : 'Pending',
+                          item.hasReceipt
+                              ? (item.receipt!.isProcessed ? 'With Receipt' : 'Pending')
+                              : 'Manual Entry',
                           style: TextStyle(
                             fontSize: 12,
-                            color: receipt.isProcessed ? Colors.green : Colors.orange,
+                            color: item.hasReceipt
+                                ? (item.receipt!.isProcessed ? Colors.green : Colors.orange)
+                                : Colors.blue,
                           ),
                         ),
+                        if (item.paymentMethod != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '• ${item.paymentMethod}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -460,7 +553,9 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
                 icon: const Icon(Icons.delete_outline),
                 color: Colors.red,
                 onPressed: () {
-                  _showDeleteDialog(context, receipt);
+                  if (item.hasReceipt && item.receipt != null) {
+                    _showDeleteDialog(context, item.receipt!);
+                  }
                 },
               ),
             ],
@@ -594,6 +689,134 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showExpenseDetailDialog(BuildContext context, Expense expense) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.receipt_long, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Expense Details',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRow('Amount', '\$${expense.amount.toStringAsFixed(2)}', Icons.attach_money),
+                    const SizedBox(height: 16),
+                    _buildDetailRow('Category', expense.category, Icons.category),
+                    const SizedBox(height: 16),
+                    _buildDetailRow('Date', DateFormat('MMMM dd, yyyy').format(expense.date), Icons.calendar_today),
+                    if (expense.description != null && expense.description!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _buildDetailRow('Description', expense.description!, Icons.notes),
+                    ],
+                    if (expense.paymentMethod != null) ...[
+                      const SizedBox(height: 16),
+                      _buildDetailRow('Payment Method', expense.paymentMethod!, Icons.payment),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildDetailRow('Currency', expense.currency, Icons.currency_exchange),
+                    const SizedBox(height: 16),
+                    _buildDetailRow(
+                      'Entry Type',
+                      'Manual Entry (No Receipt)',
+                      Icons.edit,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildDetailRow(
+                      'Created',
+                      DateFormat('MMM dd, yyyy - hh:mm a').format(expense.createdAt),
+                      Icons.access_time,
+                    ),
+                  ],
+                ),
+              ),
+              // Action buttons
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
