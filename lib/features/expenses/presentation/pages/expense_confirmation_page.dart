@@ -578,13 +578,6 @@ class _ExpenseConfirmationPageState
               ],
             ),
             const SizedBox(height: 8),
-            if (classification.reasoning != null) ...[
-              Text(
-                classification.reasoning!,
-                style: TextStyle(color: Colors.blue.shade900),
-              ),
-              const SizedBox(height: 8),
-            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

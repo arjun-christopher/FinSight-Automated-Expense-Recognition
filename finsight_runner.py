@@ -73,7 +73,7 @@ class FinSightRunner:
         self.env['ANDROID_HOME'] = str(self.android_sdk_dir)
         self.env['JAVA_HOME'] = str(self.java_home)
         self.env['PATH'] = f"{self.flutter_dir}/bin:{self.android_sdk_dir}/cmdline-tools/latest/bin:{self.android_sdk_dir}/platform-tools:{self.android_sdk_dir}/emulator:{self.env.get('PATH', '')}"
-        
+    
     def check_java(self):
         """Check if Java 17 is installed"""
         print_step("Checking Java Installation")

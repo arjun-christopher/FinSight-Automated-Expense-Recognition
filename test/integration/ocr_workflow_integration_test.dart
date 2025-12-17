@@ -209,7 +209,7 @@ void main() {
         classification: ClassificationResult(
           category: 'Shopping',
           confidence: 0.85,
-          method: ClassificationMethod.hybrid,
+          method: ClassificationMethod.ruleBased,
           processingTimeMs: 100,
         ),
         processingTimeMs: 1500,
@@ -234,7 +234,7 @@ void main() {
         classification: ClassificationResult(
           category: 'Food & Dining',
           confidence: 0.6,
-          method: ClassificationMethod.hybrid,
+          method: ClassificationMethod.ruleBased,
           processingTimeMs: 100,
         ),
         processingTimeMs: 1000,
@@ -259,7 +259,7 @@ void main() {
         classification: ClassificationResult(
           category: 'Shopping',
           confidence: 0.9,
-          method: ClassificationMethod.hybrid,
+          method: ClassificationMethod.ruleBased,
           processingTimeMs: 100,
         ),
         processingTimeMs: 2000,
@@ -390,4 +390,4 @@ class ClassificationResult {
   });
 }
 
-enum ClassificationMethod { ruleBased, llm, hybrid }
+enum ClassificationMethod { ruleBased }

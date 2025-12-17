@@ -79,8 +79,8 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
     );
 
     try {
-      // Create workflow service
-      final workflow = OcrWorkflowFactory.createMockWorkflow();
+      // Create production workflow with enhanced rule-based classification
+      final workflow = OcrWorkflowFactory.createProductionWorkflow();
 
       // Process receipt with aggressive timeout (20 seconds max)
       final stopwatch = Stopwatch()..start();

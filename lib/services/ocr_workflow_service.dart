@@ -4,6 +4,7 @@ import '../core/models/expense.dart';
 import '../core/models/parsed_receipt.dart';
 import '../core/models/classification_result.dart';
 import '../core/models/ocr_result.dart';
+import '../core/config/app_config.dart';
 import 'ocr_service.dart';
 import 'receipt_parser.dart';
 import 'category_classifier.dart';
@@ -28,13 +29,19 @@ class OcrWorkflowService {
     bool useClassifier = true,
     void Function(WorkflowStep)? onStepComplete,
   }) async {
+    debugPrint('\n\ud83d\udd04 WORKFLOW: Starting receipt processing');
+    debugPrint('  Image: $imagePath');
+    debugPrint('  Use classifier: $useClassifier');
+    
     final stopwatch = Stopwatch()..start();
     
     try {
       // Step 1: OCR - Extract text from image
+      debugPrint('\n\ud83d\udc41\ufe0f  WORKFLOW Step 1: OCR');
       onStepComplete?.call(WorkflowStep.ocr);
       final ocrResult = await ocrService.recognizeText(imagePath);
       final ocrText = ocrResult.rawText;
+      debugPrint('  OCR result: ${ocrText.isEmpty ? "EMPTY" : "${ocrText.length} chars"}');
       
       if (ocrText.isEmpty) {
         throw WorkflowException(
@@ -44,8 +51,11 @@ class OcrWorkflowService {
       }
 
       // Step 2: Parse - Convert text to structured data
+      debugPrint('\n\ud83d\udcca WORKFLOW Step 2: Parse');
       onStepComplete?.call(WorkflowStep.parse);
       final parsedReceipt = await parser.parse(ocrText);
+      debugPrint('  Merchant: ${parsedReceipt.merchantName ?? "N/A"}');
+      debugPrint('  Amount: \$${parsedReceipt.totalAmount ?? "N/A"}');
       
       if (parsedReceipt.totalAmount == null) {
         throw WorkflowException(
@@ -54,21 +64,24 @@ class OcrWorkflowService {
         );
       }
 
-      // Step 3: Classify - Determine category (smart hybrid: rules + fast LLM)
+      // Step 3: Classify - Determine category (enhanced rule-based)
       ClassificationResult? classification;
       if (useClassifier && classifier != null) {
+        debugPrint('\n\ud83e\udd16 WORKFLOW Step 3: Classify');
         onStepComplete?.call(WorkflowStep.classify);
         
         try {
-          // Smart classification: rules first (1-5ms), LLM only if needed (50-100ms)
-          classification = await classifier!.classifyHybrid(
+          final classifyStart = stopwatch.elapsedMilliseconds;
+          // Enhanced rule-based classification with combined rules
+          classification = await classifier!.classify(
             merchantName: parsedReceipt.merchantName ?? 'Unknown',
             description: parsedReceipt.items?.map((i) => i.name).join(', '),
             amount: parsedReceipt.totalAmount,
           ).timeout(
-            const Duration(seconds: 3),  // 3 seconds max (includes LLM if needed)
+            const Duration(seconds: 3),
             onTimeout: () {
-              debugPrint('Classification timed out after 3s, using default');
+              final elapsed = stopwatch.elapsedMilliseconds - classifyStart;
+              debugPrint('\u23f1\ufe0f  Classification TIMEOUT after ${elapsed}ms, using default');
               return ClassificationResult.fromRule(
                 category: 'Shopping',
                 confidence: 0.3,
@@ -77,15 +90,23 @@ class OcrWorkflowService {
               );
             },
           );
+          
+          final classifyTime = stopwatch.elapsedMilliseconds - classifyStart;
+          debugPrint('  Category: ${classification?.category ?? "N/A"}');
+          debugPrint('  Confidence: ${((classification?.confidence ?? 0) * 100).toStringAsFixed(1)}%');
+          debugPrint('  Time: ${classifyTime}ms');
         } catch (e) {
           // Classification failure is not critical
-          debugPrint('Classification failed: $e');
+          debugPrint('\u274c Classification failed: $e');
         }
       }
 
       onStepComplete?.call(WorkflowStep.complete);
 
       stopwatch.stop();
+      
+      debugPrint('\n\u2713 WORKFLOW: Completed successfully');
+      debugPrint('  Total time: ${stopwatch.elapsedMilliseconds}ms');
 
       return WorkflowResult(
         success: true,
@@ -333,12 +354,20 @@ class WorkflowException implements Exception {
 
 /// Factory for creating workflow service with different configurations
 class OcrWorkflowFactory {
-  /// Create workflow with mock classifier (for testing)
-  static OcrWorkflowService createMockWorkflow() {
+  /// Create production workflow with rule-based classification
+  /// 
+  /// Uses enhanced rule-based classification with combined rules:
+  /// - Keyword matching
+  /// - Amount-based patterns
+  /// - Context patterns (merchant + description + time/location/action)
+  static OcrWorkflowService createProductionWorkflow() {
+    debugPrint('\n🏭 Creating production workflow...');
+    debugPrint('  ⚡ Using enhanced rule-based classification');
+    
     return OcrWorkflowService(
       ocrService: OcrService(),
       parser: ReceiptParser(),
-      classifier: ClassifierFactory.createMockHybridClassifier(),
+      classifier: CategoryClassifier(),
     );
   }
 
@@ -347,21 +376,6 @@ class OcrWorkflowFactory {
     return OcrWorkflowService(
       ocrService: OcrService(),
       parser: ReceiptParser(),
-    );
-  }
-
-  /// Create full workflow with fast hybrid classifier
-  static OcrWorkflowService createFullWorkflow({
-    required String apiKey,
-    String? baseUrl,
-  }) {
-    return OcrWorkflowService(
-      ocrService: OcrService(),
-      parser: ReceiptParser(),
-      classifier: ClassifierFactory.createFastHybridClassifier(
-        apiKey: apiKey,
-        baseUrl: baseUrl,
-      ),
     );
   }
 }

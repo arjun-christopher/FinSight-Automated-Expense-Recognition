@@ -9,21 +9,6 @@ class ClassificationResult {
   /// Classification method used
   final ClassificationMethod method;
 
-  /// Rule-based prediction (if available)
-  final String? rulePrediction;
-
-  /// Rule-based confidence (if available)
-  final double? ruleConfidence;
-
-  /// LLM prediction (if available)
-  final String? llmPrediction;
-
-  /// LLM confidence (if available)
-  final double? llmConfidence;
-
-  /// Reasoning from LLM (if available)
-  final String? reasoning;
-
   /// All candidate categories with scores
   final Map<String, double> candidateScores;
 
@@ -34,11 +19,6 @@ class ClassificationResult {
     required this.category,
     required this.confidence,
     required this.method,
-    this.rulePrediction,
-    this.ruleConfidence,
-    this.llmPrediction,
-    this.llmConfidence,
-    this.reasoning,
     this.candidateScores = const {},
     required this.processingTimeMs,
   });
@@ -54,52 +34,6 @@ class ClassificationResult {
       category: category,
       confidence: confidence,
       method: ClassificationMethod.ruleBased,
-      rulePrediction: category,
-      ruleConfidence: confidence,
-      candidateScores: candidateScores,
-      processingTimeMs: processingTimeMs,
-    );
-  }
-
-  /// Create result from LLM classification
-  factory ClassificationResult.fromLLM({
-    required String category,
-    required double confidence,
-    String? reasoning,
-    required int processingTimeMs,
-  }) {
-    return ClassificationResult(
-      category: category,
-      confidence: confidence,
-      method: ClassificationMethod.llm,
-      llmPrediction: category,
-      llmConfidence: confidence,
-      reasoning: reasoning,
-      processingTimeMs: processingTimeMs,
-    );
-  }
-
-  /// Create result from hybrid classification
-  factory ClassificationResult.hybrid({
-    required String category,
-    required double confidence,
-    required String rulePrediction,
-    required double ruleConfidence,
-    required String llmPrediction,
-    required double llmConfidence,
-    String? reasoning,
-    required Map<String, double> candidateScores,
-    required int processingTimeMs,
-  }) {
-    return ClassificationResult(
-      category: category,
-      confidence: confidence,
-      method: ClassificationMethod.hybrid,
-      rulePrediction: rulePrediction,
-      ruleConfidence: ruleConfidence,
-      llmPrediction: llmPrediction,
-      llmConfidence: llmConfidence,
-      reasoning: reasoning,
       candidateScores: candidateScores,
       processingTimeMs: processingTimeMs,
     );
@@ -107,12 +41,6 @@ class ClassificationResult {
 
   /// Check if classification is reliable
   bool get isReliable => confidence > 0.7;
-
-  /// Check if rule and LLM agree (for hybrid)
-  bool get hasConsensus {
-    if (method != ClassificationMethod.hybrid) return true;
-    return rulePrediction == llmPrediction;
-  }
 
   /// Get confidence level description
   String get confidenceLevel {
@@ -129,17 +57,6 @@ class ClassificationResult {
     buffer.writeln('Category: $category');
     buffer.writeln('Confidence: ${(confidence * 100).toStringAsFixed(1)}% ($confidenceLevel)');
     buffer.writeln('Method: ${method.name}');
-    
-    if (method == ClassificationMethod.hybrid) {
-      buffer.writeln('\nRule-based: $rulePrediction (${(ruleConfidence! * 100).toStringAsFixed(1)}%)');
-      buffer.writeln('LLM: $llmPrediction (${(llmConfidence! * 100).toStringAsFixed(1)}%)');
-      buffer.writeln('Consensus: ${hasConsensus ? "Yes ✓" : "No ✗"}');
-    }
-    
-    if (reasoning != null) {
-      buffer.writeln('\nReasoning: $reasoning');
-    }
-    
     buffer.writeln('\nProcessing time: ${processingTimeMs}ms');
     
     return buffer.toString();
@@ -156,11 +73,6 @@ class ClassificationResult {
       'category': category,
       'confidence': confidence,
       'method': method.name,
-      'rulePrediction': rulePrediction,
-      'ruleConfidence': ruleConfidence,
-      'llmPrediction': llmPrediction,
-      'llmConfidence': llmConfidence,
-      'reasoning': reasoning,
       'candidateScores': candidateScores,
       'processingTimeMs': processingTimeMs,
     };
@@ -169,14 +81,8 @@ class ClassificationResult {
 
 /// Classification methods
 enum ClassificationMethod {
-  /// Rule-based keyword matching
+  /// Rule-based keyword matching with enhanced combined rules
   ruleBased,
-  
-  /// LLM-based classification
-  llm,
-  
-  /// Hybrid (combination of both)
-  hybrid,
 }
 
 /// Confidence threshold configuration
@@ -184,15 +90,11 @@ class ConfidenceThresholds {
   /// Threshold for automatic acceptance
   final double autoAccept;
   
-  /// Threshold for LLM fallback in hybrid mode
-  final double llmFallback;
-  
   /// Minimum threshold for valid classification
   final double minimum;
 
   const ConfidenceThresholds({
     this.autoAccept = 0.8,
-    this.llmFallback = 0.5,
     this.minimum = 0.3,
   });
 
@@ -202,14 +104,12 @@ class ConfidenceThresholds {
   /// Strict thresholds
   static const strict = ConfidenceThresholds(
     autoAccept: 0.9,
-    llmFallback: 0.7,
     minimum: 0.5,
   );
 
   /// Lenient thresholds
   static const lenient = ConfidenceThresholds(
     autoAccept: 0.6,
-    llmFallback: 0.4,
     minimum: 0.2,
   );
 }

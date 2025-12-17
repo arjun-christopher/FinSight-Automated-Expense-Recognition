@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../core/models/ocr_result.dart';
 
@@ -34,7 +35,10 @@ class OcrService {
   ///
   /// Throws [OcrException] if processing fails
   Future<OcrResult> recognizeText(String imagePath) async {
+    debugPrint('🔍 OCR: Starting text recognition for: $imagePath');
+    
     if (!_isInitialized) {
+      debugPrint('❌ OCR: Service not initialized');
       return OcrResult.failure(
         errorMessage: 'OCR service not initialized',
       );
@@ -42,28 +46,45 @@ class OcrService {
 
     try {
       // Validate image file exists
+      debugPrint('📂 OCR: Checking if file exists...');
       final imageFile = File(imagePath);
       if (!await imageFile.exists()) {
+        debugPrint('❌ OCR: File not found');
         return OcrResult.failure(
           errorMessage: 'Image file not found: $imagePath',
         );
       }
 
+      final fileSize = await imageFile.length();
+      debugPrint('✓ OCR: File exists (${(fileSize / 1024).toStringAsFixed(1)} KB)');
+      
       // Create InputImage from file path
+      debugPrint('🖼️  OCR: Creating InputImage...');
       final inputImage = InputImage.fromFilePath(imagePath);
 
       // Perform text recognition with 10 second timeout
+      debugPrint('⏳ OCR: Processing image (max 10 seconds)...');
+      final sw = Stopwatch()..start();
+      
       final recognizedText = await _textRecognizer.processImage(inputImage).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
+          sw.stop();
+          debugPrint('⏱️  OCR: TIMEOUT after ${sw.elapsedMilliseconds}ms');
           throw Exception('OCR processing timed out after 10 seconds');
         },
       );
+      
+      sw.stop();
+      debugPrint('✓ OCR: Processing completed in ${sw.elapsedMilliseconds}ms');
 
       // Extract text and metadata
       final textBlocks = _extractTextBlocks(recognizedText);
       final rawText = recognizedText.text;
       final confidence = _calculateAverageConfidence(textBlocks);
+      
+      debugPrint('📝 OCR: Extracted ${rawText.length} characters');
+      debugPrint('📊 OCR: Confidence: ${((confidence ?? 0.0) * 100).toStringAsFixed(1)}%');
 
       return OcrResult.success(
         rawText: rawText,
@@ -71,6 +92,7 @@ class OcrService {
         confidence: confidence,
       );
     } catch (e) {
+      debugPrint('❌ OCR: Error occurred - $e');
       return OcrResult.failure(
         errorMessage: 'OCR processing failed: ${e.toString()}',
       );
