@@ -178,7 +178,7 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${state.filteredReceipts.length} receipts',
+                  '${state.filteredItems.length} items',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -254,7 +254,7 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
       );
     }
 
-    if (state.filteredReceipts.isEmpty && !state.isLoading) {
+    if (state.filteredItems.isEmpty && !state.isLoading) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -262,7 +262,7 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
             Icon(Icons.receipt_long, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'No receipts found',
+              'No items found',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -374,7 +374,7 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
                       ),
                       child: Text(
                         item.hasReceipt
-                            ? (item.receipt!.isProcessed ? 'Receipt' : 'Pending')
+                            ? (item.receipt!.isProcessed ? 'Processed' : 'Pending')
                             : 'Manual',
                         style: const TextStyle(
                           color: Colors.white,
@@ -698,13 +698,14 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
       builder: (context) => Dialog(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 500),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
                   borderRadius: const BorderRadius.only(
@@ -784,6 +785,7 @@ class _ReceiptListPageState extends ConsumerState<ReceiptListPage> {
           ),
         ),
       ),
+    ),
     );
   }
 
