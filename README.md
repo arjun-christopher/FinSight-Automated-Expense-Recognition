@@ -2,7 +2,7 @@
 
 <img src="assets/images/Logo.png" alt="FinSight Logo" width="200"/>
 
-# FinSight: Automated Expense Recognition & Management
+## FinSight: Automated Expense Recognition & Management
 
 *AI-powered receipt scanning and intelligent expense tracking*
 
