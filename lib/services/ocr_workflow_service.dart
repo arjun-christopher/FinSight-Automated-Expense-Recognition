@@ -37,9 +37,18 @@ class OcrWorkflowService {
     
     try {
       // Step 1: OCR - Extract text from image
-      debugPrint('\n\ud83d\udc41\ufe0f  WORKFLOW Step 1: OCR');
+      debugPrint('\n👁️  WORKFLOW Step 1: OCR');
       onStepComplete?.call(WorkflowStep.ocr);
       final ocrResult = await ocrService.recognizeText(imagePath);
+      
+      // Check if OCR itself failed
+      if (!ocrResult.success) {
+        throw WorkflowException(
+          ocrResult.errorMessage ?? 'OCR processing failed',
+          step: WorkflowStep.ocr,
+        );
+      }
+      
       final ocrText = ocrResult.rawText;
       debugPrint('  OCR result: ${ocrText.isEmpty ? "EMPTY" : "${ocrText.length} chars"}');
       

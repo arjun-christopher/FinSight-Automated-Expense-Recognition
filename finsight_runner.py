@@ -300,6 +300,34 @@ class FinSightRunner:
         
         return success
     
+    def copy_apk_to_root(self, apk_path, build_type="debug"):
+        """Copy APK to root directory with clean name and remove old APKs"""
+        print_step("Copying APK to Root Directory")
+        
+        # Remove all old APK files from root
+        print_info("Removing old APK files...")
+        for old_apk in self.project_dir.glob("*.apk"):
+            try:
+                old_apk.unlink()
+                print_info(f"  Removed: {old_apk.name}")
+            except Exception as e:
+                print_warning(f"  Could not remove {old_apk.name}: {e}")
+        
+        # Copy new APK with clean name
+        root_apk_path = self.project_dir / "FinSight.apk"
+        try:
+            shutil.copy2(apk_path, root_apk_path)
+            size = root_apk_path.stat().st_size / (1024 * 1024)  # Convert to MB
+            print_success(f"APK copied to root directory!")
+            print_success(f"Location: {root_apk_path}")
+            print_success(f"Filename: FinSight.apk ({build_type})")
+            print_success(f"Size: {size:.1f} MB")
+            print_info(f"\n{Colors.BOLD}The APK is now available for download at the repository root!{Colors.ENDC}")
+            return True, root_apk_path
+        except Exception as e:
+            print_error(f"Failed to copy APK to root: {e}")
+            return False, None
+    
     def build_apk(self, build_type="debug"):
         """Build the Flutter APK"""
         print_step(f"Building {build_type.upper()} APK")
@@ -320,9 +348,13 @@ class FinSightRunner:
             if apk_path.exists():
                 size = apk_path.stat().st_size / (1024 * 1024)  # Convert to MB
                 print_success(f"APK built successfully!")
-                print_success(f"Location: {apk_path}")
+                print_success(f"Build location: {apk_path}")
                 print_success(f"Size: {size:.1f} MB")
-                return True, apk_path
+                
+                # Copy to root directory
+                copy_success, root_apk = self.copy_apk_to_root(apk_path, build_type)
+                
+                return True, root_apk if copy_success else apk_path
             else:
                 print_error("APK file not found after build")
                 return False, None

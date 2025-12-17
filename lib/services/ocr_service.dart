@@ -35,6 +35,7 @@ class OcrService {
   ///
   /// Throws [OcrException] if processing fails
   Future<OcrResult> recognizeText(String imagePath) async {
+    final overallStopwatch = Stopwatch()..start();
     debugPrint('🔍 OCR: Starting text recognition for: $imagePath');
     
     if (!_isInitialized) {
@@ -56,35 +57,58 @@ class OcrService {
       }
 
       final fileSize = await imageFile.length();
-      debugPrint('✓ OCR: File exists (${(fileSize / 1024).toStringAsFixed(1)} KB)');
+      final fileSizeKB = fileSize / 1024;
+      final fileSizeMB = fileSizeKB / 1024;
+      debugPrint('✓ OCR: File exists (${fileSizeKB.toStringAsFixed(1)} KB)');
+      
+      // Check file size - reject very large images that might cause hanging
+      const maxSizeMB = 10; // 10MB limit
+      if (fileSizeMB > maxSizeMB) {
+        debugPrint('❌ OCR: File too large (${fileSizeMB.toStringAsFixed(1)} MB > $maxSizeMB MB)');
+        return OcrResult.failure(
+          errorMessage: 'Image file too large (${fileSizeMB.toStringAsFixed(1)} MB). Please use an image smaller than $maxSizeMB MB.',
+        );
+      }
       
       // Create InputImage from file path
       debugPrint('🖼️  OCR: Creating InputImage...');
       final inputImage = InputImage.fromFilePath(imagePath);
 
-      // Perform text recognition with 10 second timeout
-      debugPrint('⏳ OCR: Processing image (max 10 seconds)...');
+      // Perform text recognition with 15 second timeout
+      // Note: The timeout might not interrupt the native ML Kit process,
+      // but will ensure the Dart code doesn't hang indefinitely
+      debugPrint('⏳ OCR: Processing image (max 15 seconds)...');
       final sw = Stopwatch()..start();
       
-      final recognizedText = await _textRecognizer.processImage(inputImage).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          sw.stop();
-          debugPrint('⏱️  OCR: TIMEOUT after ${sw.elapsedMilliseconds}ms');
-          throw Exception('OCR processing timed out after 10 seconds');
-        },
-      );
+      RecognizedText recognizedText;
+      try {
+        recognizedText = await _textRecognizer.processImage(inputImage).timeout(
+          const Duration(seconds: 15),
+          onTimeout: () {
+            sw.stop();
+            debugPrint('⏱️  OCR: TIMEOUT after ${sw.elapsedMilliseconds}ms');
+            throw Exception('OCR processing timed out after 15 seconds. The image may be too large or complex.');
+          },
+        );
+      } catch (e) {
+        sw.stop();
+        debugPrint('❌ OCR: processImage failed after ${sw.elapsedMilliseconds}ms');
+        throw e;
+      }
       
       sw.stop();
       debugPrint('✓ OCR: Processing completed in ${sw.elapsedMilliseconds}ms');
 
       // Extract text and metadata
+      debugPrint('📊 OCR: Extracting text blocks...');
       final textBlocks = _extractTextBlocks(recognizedText);
       final rawText = recognizedText.text;
       final confidence = _calculateAverageConfidence(textBlocks);
       
+      overallStopwatch.stop();
       debugPrint('📝 OCR: Extracted ${rawText.length} characters');
       debugPrint('📊 OCR: Confidence: ${((confidence ?? 0.0) * 100).toStringAsFixed(1)}%');
+      debugPrint('⏱️  OCR: Total time including overhead: ${overallStopwatch.elapsedMilliseconds}ms');
 
       return OcrResult.success(
         rawText: rawText,
@@ -92,7 +116,16 @@ class OcrService {
         confidence: confidence,
       );
     } catch (e) {
-      debugPrint('❌ OCR: Error occurred - $e');
+      overallStopwatch.stop();
+      debugPrint('❌ OCR: Error occurred after ${overallStopwatch.elapsedMilliseconds}ms - $e');
+      
+      // Check if this is a timeout
+      if (e.toString().contains('TimeoutException') || e.toString().contains('timed out')) {
+        return OcrResult.failure(
+          errorMessage: 'OCR processing timed out. The image may be too complex or large.',
+        );
+      }
+      
       return OcrResult.failure(
         errorMessage: 'OCR processing failed: ${e.toString()}',
       );

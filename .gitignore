@@ -77,6 +77,9 @@ android/app/*.keystore
 *.keystore
 *.jks
 
+# APK files (built artifacts)
+*.apk
+
 # iOS signing
 ios/Runner.xcodeproj/project.pbxproj.resolved
 ios/Runner.xcarchive

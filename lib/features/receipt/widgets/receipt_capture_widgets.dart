@@ -273,6 +273,7 @@ class _ProcessingDialogState extends State<ProcessingDialog>
   late AnimationController _controller;
   int _currentStep = 0;
   int _elapsedSeconds = 0;
+  bool _isDisposed = false;
   
   final List<String> _steps = [
     'Scanning receipt...',
@@ -290,33 +291,41 @@ class _ProcessingDialogState extends State<ProcessingDialog>
     )..repeat();
     
     // Cycle through steps faster (2 seconds per step)
-    Future.delayed(const Duration(seconds: 2), _nextStep);
+    _scheduleNextStep();
     
     // Update elapsed time counter
-    Future.delayed(const Duration(seconds: 1), _updateElapsedTime);
+    _scheduleTimeUpdate();
   }
 
-  void _nextStep() {
-    if (mounted && _currentStep < _steps.length - 1) {
-      setState(() {
-        _currentStep++;
+  void _scheduleNextStep() {
+    if (!_isDisposed && mounted) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!_isDisposed && mounted && _currentStep < _steps.length - 1) {
+          setState(() {
+            _currentStep++;
+          });
+          _scheduleNextStep();
+        }
       });
-      // Faster transitions (2 seconds per step)
-      Future.delayed(const Duration(seconds: 2), _nextStep);
     }
   }
 
-  void _updateElapsedTime() {
-    if (mounted) {
-      setState(() {
-        _elapsedSeconds++;
+  void _scheduleTimeUpdate() {
+    if (!_isDisposed && mounted) {
+      Future.delayed(const Duration(seconds: 1), () {
+        if (!_isDisposed && mounted) {
+          setState(() {
+            _elapsedSeconds++;
+          });
+          _scheduleTimeUpdate();
+        }
       });
-      Future.delayed(const Duration(seconds: 1), _updateElapsedTime);
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _controller.dispose();
     super.dispose();
   }
@@ -324,20 +333,33 @@ class _ProcessingDialogState extends State<ProcessingDialog>
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      backgroundColor: Colors.white,
+      elevation: 8,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+      child: Container(
+        constraints: const BoxConstraints(
+          minWidth: 280,
+          maxWidth: 340,
+        ),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             RotationTransition(
               turns: _controller,
-              child: Icon(
-                Icons.camera_alt,
-                size: 48,
-                color: Theme.of(context).colorScheme.primary,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.receipt_long,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -345,6 +367,7 @@ class _ProcessingDialogState extends State<ProcessingDialog>
               'Processing Receipt',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
             ),
             const SizedBox(height: 16),
@@ -354,55 +377,67 @@ class _ProcessingDialogState extends State<ProcessingDialog>
                 _steps[_currentStep],
                 key: ValueKey(_currentStep),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withOpacity(0.6),
+                      color: Colors.black87,
+                      fontSize: 15,
                     ),
+                textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 24),
-            LinearProgressIndicator(
-              value: (_currentStep + 1) / _steps.length,
-              backgroundColor: Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withOpacity(0.1),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: (_currentStep + 1) / _steps.length,
+                minHeight: 8,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withOpacity(0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.access_time,
-                  size: 14,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.5),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${_elapsedSeconds}s elapsed',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.6),
-                      ),
-                ),
-              ],
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _elapsedSeconds > 15 
+                    ? Colors.orange.withOpacity(0.1)
+                    : Colors.grey.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: 16,
+                    color: _elapsedSeconds > 15 ? Colors.orange : Colors.grey[600],
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${_elapsedSeconds}s',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: _elapsedSeconds > 15 ? Colors.orange[700] : Colors.grey[700],
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Usually takes 5-15 seconds',
+              _elapsedSeconds > 15 
+                  ? 'Taking longer than usual...'
+                  : 'Usually takes 5-15 seconds',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.5),
+                    color: _elapsedSeconds > 15 ? Colors.orange[700] : Colors.grey[600],
                     fontStyle: FontStyle.italic,
+                    fontSize: 12,
                   ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

@@ -69,14 +69,39 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
     
     if (imagePath == null) return;
 
-    // Show processing dialog
+    // Show processing dialog with semi-transparent barrier
     if (!mounted) return;
-    final dialogContext = context;
     showDialog(
       context: context,
       barrierDismissible: false,
+      barrierColor: Colors.black54, // Semi-transparent so UI behind is visible
       builder: (context) => const ProcessingDialog(),
     );
+
+    bool dialogDismissed = false;
+    
+    void safeCloseDialog() {
+      if (!dialogDismissed && mounted) {
+        try {
+          dialogDismissed = true;
+          Navigator.of(context).pop();
+          debugPrint('✓ Dialog closed');
+        } catch (e) {
+          debugPrint('⚠️ Error closing dialog: $e');
+        }
+      }
+    }
+    
+    // Hard timeout safeguard - force close dialog after 25 seconds
+    final hardTimeoutTimer = Future.delayed(const Duration(seconds: 25), () {
+      if (!dialogDismissed) {
+        debugPrint('🚨 HARD TIMEOUT: Forcefully closing dialog after 25 seconds');
+        safeCloseDialog();
+        if (mounted) {
+          _showErrorSnackbar('Processing took too long and was cancelled. Please try again with a clearer image.');
+        }
+      }
+    });
 
     try {
       // Create production workflow with enhanced rule-based classification
@@ -93,31 +118,38 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
       ).timeout(
         const Duration(seconds: 20),
         onTimeout: () {
+          stopwatch.stop();
           debugPrint('❌ Timeout after ${stopwatch.elapsedMilliseconds}ms');
           throw Exception('Processing timed out after 20 seconds. Please try with a clearer, well-lit receipt image.');
         },
       );
 
-      if (!mounted) return;
+      stopwatch.stop();
+      debugPrint('✓ Processing completed in ${stopwatch.elapsedMilliseconds}ms');
       
       // Close processing dialog
-      Navigator.of(dialogContext).pop();
+      safeCloseDialog();
+
+      if (!mounted) return;
 
       if (result.success) {
+        debugPrint('✓ Navigating to confirmation screen');
         // Navigate to confirmation screen
         context.push('/expense-confirmation', extra: result);
         
         // Reset capture state
         ref.read(receiptCaptureProvider.notifier).reset();
       } else {
+        debugPrint('❌ Processing failed: ${result.errorMessage}');
         // Show error
         _showErrorSnackbar('Processing failed: ${result.errorMessage ?? "Unknown error"}');
       }
     } catch (e) {
-      if (!mounted) return;
-      
+      debugPrint('❌ Exception during processing: $e');
       // Close processing dialog
-      Navigator.of(dialogContext).pop();
+      safeCloseDialog();
+      
+      if (!mounted) return;
       
       // Show error with helpful message
       final errorMessage = e.toString().contains('timed out')
