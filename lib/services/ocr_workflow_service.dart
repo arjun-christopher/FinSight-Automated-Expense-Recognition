@@ -54,16 +54,28 @@ class OcrWorkflowService {
         );
       }
 
-      // Step 3: Classify - Determine category
+      // Step 3: Classify - Determine category (smart hybrid: rules + fast LLM)
       ClassificationResult? classification;
       if (useClassifier && classifier != null) {
         onStepComplete?.call(WorkflowStep.classify);
         
         try {
+          // Smart classification: rules first (1-5ms), LLM only if needed (50-100ms)
           classification = await classifier!.classifyHybrid(
             merchantName: parsedReceipt.merchantName ?? 'Unknown',
             description: parsedReceipt.items?.map((i) => i.name).join(', '),
             amount: parsedReceipt.totalAmount,
+          ).timeout(
+            const Duration(seconds: 3),  // 3 seconds max (includes LLM if needed)
+            onTimeout: () {
+              debugPrint('Classification timed out after 3s, using default');
+              return ClassificationResult.fromRule(
+                category: 'Shopping',
+                confidence: 0.3,
+                candidateScores: {'Shopping': 0.3},
+                processingTimeMs: 3000,
+              );
+            },
           );
         } catch (e) {
           // Classification failure is not critical
@@ -338,19 +350,17 @@ class OcrWorkflowFactory {
     );
   }
 
-  /// Create full workflow with real classifier
+  /// Create full workflow with fast hybrid classifier
   static OcrWorkflowService createFullWorkflow({
     required String apiKey,
     String? baseUrl,
-    String? model,
   }) {
     return OcrWorkflowService(
       ocrService: OcrService(),
       parser: ReceiptParser(),
-      classifier: ClassifierFactory.createHybridClassifier(
+      classifier: ClassifierFactory.createFastHybridClassifier(
         apiKey: apiKey,
         baseUrl: baseUrl,
-        model: model,
       ),
     );
   }

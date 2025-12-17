@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../core/constants/expense_constants.dart';
 import '../core/models/classification_result.dart';
 import 'llm_service.dart';
@@ -76,19 +77,20 @@ class CategoryClassifier {
   }
 
   /// Classify using hybrid approach (rules + LLM)
+  /// SMART: Uses LLM only when rule-based confidence is low
   Future<ClassificationResult> classifyHybrid({
     required String merchantName,
     String? description,
     double? amount,
   }) async {
-    // Check cache first for faster results
+    // Check cache first for instant results
     final cacheKey = _normalizeText(merchantName);
     if (_cache.containsKey(cacheKey)) {
       return _cache[cacheKey]!;
     }
     
+    // No LLM service? Use rule-based only
     if (llmService == null) {
-      // Fall back to rule-based if no LLM service
       final result = await classifyWithRules(
         merchantName: merchantName,
         description: description,
@@ -96,73 +98,75 @@ class CategoryClassifier {
       _cache[cacheKey] = result;
       return result;
     }
-
+    
     final stopwatch = Stopwatch()..start();
-
-    // Get rule-based prediction
+    
+    // Step 1: Try rule-based first (fast, 1-5ms)
     final ruleResult = await classifyWithRules(
       merchantName: merchantName,
       description: description,
     );
-
-    // If rule-based confidence is high enough, skip LLM to save time
+    
+    // Step 2: If confidence is high enough, skip LLM (saves 50-100ms)
     if (ruleResult.confidence >= thresholds.autoAccept) {
       stopwatch.stop();
-      final result = ClassificationResult.hybrid(
+      final result = ClassificationResult.fromRule(
         category: ruleResult.category,
         confidence: ruleResult.confidence,
-        rulePrediction: ruleResult.category,
-        ruleConfidence: ruleResult.confidence,
-        llmPrediction: ruleResult.category,
-        llmConfidence: ruleResult.confidence,
-        reasoning: 'High confidence rule-based match',
         candidateScores: ruleResult.candidateScores,
         processingTimeMs: stopwatch.elapsedMilliseconds,
       );
       _cache[cacheKey] = result;
       return result;
     }
-
-    // Get LLM prediction for low confidence cases
-    final llmResult = await classifyWithLLM(
-      merchantName: merchantName,
-      description: description,
-      amount: amount,
-    );
-
-    // Combine predictions
-    final finalCategory = _selectFinalCategory(
-      ruleCategory: ruleResult.category,
-      ruleConfidence: ruleResult.confidence,
-      llmCategory: llmResult.category,
-      llmConfidence: llmResult.confidence,
-    );
-
-    final finalConfidence = _calculateHybridConfidence(
-      ruleCategory: ruleResult.category,
-      ruleConfidence: ruleResult.confidence,
-      llmCategory: llmResult.category,
-      llmConfidence: llmResult.confidence,
-    );
-
-    stopwatch.stop();
-
-    final result = ClassificationResult.hybrid(
-      category: finalCategory,
-      confidence: finalConfidence,
-      rulePrediction: ruleResult.category,
-      ruleConfidence: ruleResult.confidence,
-      llmPrediction: llmResult.category,
-      llmConfidence: llmResult.confidence,
-      reasoning: llmResult.reasoning,
-      candidateScores: ruleResult.candidateScores,
-      processingTimeMs: stopwatch.elapsedMilliseconds,
-    );
     
-    // Cache the result for future use
-    _cache[cacheKey] = result;
-    
-    return result;
+    // Step 3: Low confidence - use fast LLM for better accuracy
+    try {
+      final llmResult = await llmService!.classifyCategory(
+        merchantName: merchantName,
+        description: description,
+        amount: amount,
+      ).timeout(
+        const Duration(seconds: 2),  // 2 second timeout for LLM call
+        onTimeout: () {
+          // If LLM is slow, return rule result
+          debugPrint('⏱️ LLM timeout, falling back to rules');
+          return {
+            'category': ruleResult.category,
+            'confidence': ruleResult.confidence,
+            'reasoning': 'Timeout - using rules',
+          };
+        },
+      );
+      
+      stopwatch.stop();
+      
+      final result = ClassificationResult.hybrid(
+        category: llmResult['category'] as String,
+        confidence: (llmResult['confidence'] as num).toDouble(),
+        rulePrediction: ruleResult.category,
+        ruleConfidence: ruleResult.confidence,
+        llmPrediction: llmResult['category'] as String,
+        llmConfidence: (llmResult['confidence'] as num).toDouble(),
+        reasoning: llmResult['reasoning'] as String? ?? 'Hybrid classification',
+        candidateScores: ruleResult.candidateScores,
+        processingTimeMs: stopwatch.elapsedMilliseconds,
+      );
+      
+      _cache[cacheKey] = result;
+      return result;
+    } catch (e) {
+      // LLM failed - return rule result
+      stopwatch.stop();
+      final result = ClassificationResult.fromRule(
+        category: ruleResult.category,
+        confidence: ruleResult.confidence * 0.9,  // Slight penalty
+        candidateScores: ruleResult.candidateScores,
+        processingTimeMs: stopwatch.elapsedMilliseconds,
+      );
+      _cache[cacheKey] = result;
+      return result;
+    }
   }
 
   /// Clear the classification cache
@@ -415,6 +419,19 @@ class ClassifierFactory {
   static CategoryClassifier createMockHybridClassifier() {
     return CategoryClassifier(
       llmService: MockLlmService(),
+    );
+  }
+  
+  /// Create fast hybrid classifier with lightweight LLM
+  static CategoryClassifier createFastHybridClassifier({
+    required String apiKey,
+    String? baseUrl,
+  }) {
+    return CategoryClassifier(
+      llmService: FastLlmService(
+        apiKey: apiKey,
+        baseUrl: baseUrl,
+      ),
     );
   }
 

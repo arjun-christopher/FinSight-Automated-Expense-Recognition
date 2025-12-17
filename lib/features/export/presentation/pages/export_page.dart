@@ -478,6 +478,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
             SnackBar(
               content: Text('Export successful: ${_selectedFormat.displayName}'),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),  // Auto-close after 3 seconds
               action: exportedFile != null ? SnackBarAction(
                 label: 'Share',
                 textColor: Colors.white,

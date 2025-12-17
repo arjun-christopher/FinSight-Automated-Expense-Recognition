@@ -289,8 +289,8 @@ class _ProcessingDialogState extends State<ProcessingDialog>
       vsync: this,
     )..repeat();
     
-    // Cycle through steps more slowly to match actual processing
-    Future.delayed(const Duration(seconds: 3), _nextStep);
+    // Cycle through steps faster (2 seconds per step)
+    Future.delayed(const Duration(seconds: 2), _nextStep);
     
     // Update elapsed time counter
     Future.delayed(const Duration(seconds: 1), _updateElapsedTime);
@@ -301,8 +301,8 @@ class _ProcessingDialogState extends State<ProcessingDialog>
       setState(() {
         _currentStep++;
       });
-      // Longer delay to better match real processing time
-      Future.delayed(const Duration(seconds: 3), _nextStep);
+      // Faster transitions (2 seconds per step)
+      Future.delayed(const Duration(seconds: 2), _nextStep);
     }
   }
 

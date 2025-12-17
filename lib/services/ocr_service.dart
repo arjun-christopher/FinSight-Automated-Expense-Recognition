@@ -52,8 +52,13 @@ class OcrService {
       // Create InputImage from file path
       final inputImage = InputImage.fromFilePath(imagePath);
 
-      // Perform text recognition
-      final recognizedText = await _textRecognizer.processImage(inputImage);
+      // Perform text recognition with 10 second timeout
+      final recognizedText = await _textRecognizer.processImage(inputImage).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('OCR processing timed out after 10 seconds');
+        },
+      );
 
       // Extract text and metadata
       final textBlocks = _extractTextBlocks(recognizedText);

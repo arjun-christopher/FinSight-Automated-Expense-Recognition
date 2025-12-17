@@ -191,6 +191,114 @@ class LlmException implements Exception {
   String toString() => 'LlmException: $message';
 }
 
+/// Fast LLM service using lightweight models for quick classification
+class FastLlmService extends LlmService {
+  FastLlmService({
+    required String apiKey,
+    String? baseUrl,
+  }) : super(
+    apiKey: apiKey,
+    baseUrl: baseUrl ?? 'https://api.openai.com/v1',
+    model: 'gpt-3.5-turbo',  // Fast and cheap model
+    timeout: const Duration(seconds: 3),  // Shorter timeout
+  );
+
+  @override
+  Future<Map<String, dynamic>> classifyCategory({
+    required String merchantName,
+    String? description,
+    double? amount,
+  }) async {
+    // Ultra-short, optimized prompt for speed
+    final prompt = 'Categorize: $merchantName. Reply with just the category name.';
+    
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/chat/completions'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $apiKey',
+            },
+            body: jsonEncode({
+              'model': model,
+              'messages': [
+                {'role': 'system', 'content': 'Classify expenses into: Food & Dining, Groceries, Transportation, Shopping, Entertainment, Utilities, Healthcare, Travel, Fitness, or Other. Reply with ONLY the category name.'},
+                {'role': 'user', 'content': prompt},
+              ],
+              'temperature': 0.2,
+              'max_tokens': 20,  // Very short response for speed
+            }),
+          )
+          .timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final content = (data['choices'][0]['message']['content'] as String).trim();
+        
+        // Quick parsing - just extract the category
+        String category = ExpenseCategories.other;
+        double confidence = 0.8;
+        
+        final normalized = content.toLowerCase();
+        if (normalized.contains('food') || normalized.contains('dining')) {
+          category = ExpenseCategories.food;
+          confidence = 0.9;
+        } else if (normalized.contains('grocer')) {
+          category = ExpenseCategories.groceries;
+          confidence = 0.9;
+        } else if (normalized.contains('transport')) {
+          category = ExpenseCategories.transportation;
+          confidence = 0.9;
+        } else if (normalized.contains('shop')) {
+          category = ExpenseCategories.shopping;
+          confidence = 0.85;
+        } else if (normalized.contains('entertain')) {
+          category = ExpenseCategories.entertainment;
+          confidence = 0.9;
+        } else if (normalized.contains('util')) {
+          category = ExpenseCategories.utilities;
+          confidence = 0.9;
+        } else if (normalized.contains('health')) {
+          category = ExpenseCategories.healthcare;
+          confidence = 0.9;
+        } else if (normalized.contains('travel')) {
+          category = ExpenseCategories.travel;
+          confidence = 0.9;
+        } else if (normalized.contains('fit')) {
+          category = ExpenseCategories.fitness;
+          confidence = 0.85;
+        }
+        
+        return {
+          'category': category,
+          'confidence': confidence,
+          'reasoning': 'Fast LLM classification',
+        };
+      } else {
+        // Fall back to mock on error
+        return _mockClassify(merchantName);
+      }
+    } catch (e) {
+      // Fall back to mock on error
+      return _mockClassify(merchantName);
+    }
+  }
+  
+  Map<String, dynamic> _mockClassify(String merchantName) {
+    final merchant = merchantName.toLowerCase();
+    
+    if (merchant.contains('starbucks') || merchant.contains('cafe') || merchant.contains('restaurant')) {
+      return {'category': ExpenseCategories.food, 'confidence': 0.9, 'reasoning': 'Fast rule match'};
+    } else if (merchant.contains('walmart') || merchant.contains('target')) {
+      return {'category': ExpenseCategories.groceries, 'confidence': 0.9, 'reasoning': 'Fast rule match'};
+    } else if (merchant.contains('uber') || merchant.contains('gas')) {
+      return {'category': ExpenseCategories.transportation, 'confidence': 0.85, 'reasoning': 'Fast rule match'};
+    }
+    return {'category': ExpenseCategories.other, 'confidence': 0.6, 'reasoning': 'Default'};
+  }
+}
+
 /// Mock LLM service for testing without API key
 class MockLlmService extends LlmService {
   MockLlmService() : super(apiKey: 'mock-key');
@@ -201,8 +309,8 @@ class MockLlmService extends LlmService {
     String? description,
     double? amount,
   }) async {
-    // Simulate network delay (reduced for better UX)
-    await Future.delayed(const Duration(milliseconds: 100));
+    // No artificial delay for faster processing
+    // await Future.delayed(const Duration(milliseconds: 100));
 
     // Mock classification based on merchant name
     final merchant = merchantName.toLowerCase();

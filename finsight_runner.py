@@ -26,8 +26,8 @@ class Colors:
 def print_banner():
     print(f"\n{Colors.BOLD}{Colors.OKCYAN}")
     print("╔═══════════════════════════════════════════════════════════╗")
-    print("║        FinSight App - Complete Runner & Builder          ║")
-    print("║        Automated Expense Recognition Application         ║")
+    print("║        FinSight App - Complete Runner & Builder           ║")
+    print("║        Automated Expense Recognition Application          ║")
     print("╚═══════════════════════════════════════════════════════════╝")
     print(f"{Colors.ENDC}\n")
 

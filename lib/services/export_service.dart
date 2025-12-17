@@ -30,9 +30,32 @@ class ExportService {
   final _dateFormat = DateFormat('dd/MM/yyyy');
   
   /// Get currency formatter for a specific currency
+  /// Uses safe ASCII-compatible format to avoid PDF Unicode issues
   NumberFormat _getCurrencyFormat(String currency) {
-    final symbol = CurrencyService.getSymbol(currency);
-    return NumberFormat.currency(symbol: symbol);
+    // Use currency code instead of symbol for better PDF compatibility
+    return NumberFormat.currency(
+      symbol: '$currency ',
+      decimalDigits: 2,
+    );
+  }
+  
+  /// Format amount with currency (safer for PDF)
+  /// Uses ASCII-safe fallbacks for symbols that don't render well in PDF
+  String _formatCurrency(double amount, String currency) {
+    // PDF-safe symbol mapping (fallback for problematic Unicode)
+    final pdfSafeSymbols = {
+      'INR': 'Rs. ',  // Indian Rupee - use Rs. instead of ₹
+      'EUR': 'EUR ',  // Euro - use EUR instead of €
+      'GBP': 'GBP ',  // Pound - use GBP instead of £
+      'JPY': 'JPY ',  // Yen - use JPY instead of ¥
+      'KRW': 'KRW ',  // Won - use KRW instead of ₩
+      'RUB': 'RUB ',  // Ruble - use RUB instead of ₽
+      'TRY': 'TRY ',  // Lira - use TRY instead of ₺
+    };
+    
+    // Use PDF-safe symbol if available, otherwise use original
+    final symbol = pdfSafeSymbols[currency] ?? CurrencyService.getSymbol(currency);
+    return '${symbol}${amount.toStringAsFixed(2)}';
   }
 
   /// Generate PDF report from expenses
@@ -51,28 +74,48 @@ class ExportService {
     CurrencyService? currencyService,
   }) async {
     final pdf = pw.Document();
-    final currencyFormat = _getCurrencyFormat(displayCurrency);
+    final service = currencyService ?? CurrencyService();
     
-    // Calculate summary statistics (note: amounts shown in original currency)
-    final totalExpenses = expenses.fold<double>(
-      0,
-      (sum, expense) => sum + expense.amount,
-    );
+    // Convert all expense amounts to display currency
+    double totalExpenses = 0;
+    for (final expense in expenses) {
+      final converted = await service.convertCurrency(
+        amount: expense.amount,
+        from: expense.currency,
+        to: displayCurrency,
+      );
+      totalExpenses += converted;
+    }
     final averageExpense = expenses.isEmpty ? 0.0 : totalExpenses / expenses.length;
     
-    // Group by category
+    // Group by category (with currency conversion)
     final categoryTotals = <String, double>{};
     for (final expense in expenses) {
+      final converted = await service.convertCurrency(
+        amount: expense.amount,
+        from: expense.currency,
+        to: displayCurrency,
+      );
       categoryTotals[expense.category] = 
-          (categoryTotals[expense.category] ?? 0) + expense.amount;
+          (categoryTotals[expense.category] ?? 0) + converted;
     }
     
-    // Group by date
+    // Group by date (with currency conversion)
     final dailyTotals = <String, double>{};
     for (final expense in expenses) {
+      final converted = await service.convertCurrency(
+        amount: expense.amount,
+        from: expense.currency,
+        to: displayCurrency,
+      );
       final dateKey = _dateFormat.format(expense.date);
-      dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + expense.amount;
+      dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + converted;
     }
+
+    // Pre-build expense table (needs async)
+    final expenseTable = expenses.isNotEmpty 
+        ? await _buildPDFExpenseTable(expenses, displayCurrency, service)
+        : null;
 
     // Add page with content
     pdf.addPage(
@@ -85,22 +128,22 @@ class ExportService {
           pw.SizedBox(height: 20),
           
           // Summary Section
-          _buildPDFSummary(expenses.length, totalExpenses, averageExpense, currencyFormat),
+          _buildPDFSummary(expenses.length, totalExpenses, averageExpense, displayCurrency),
           pw.SizedBox(height: 20),
           
           // Category Breakdown
           if (categoryTotals.isNotEmpty) ...[
             _buildPDFSectionTitle('Category Breakdown'),
             pw.SizedBox(height: 10),
-            _buildPDFCategoryTable(categoryTotals, totalExpenses, currencyFormat),
+            _buildPDFCategoryTable(categoryTotals, totalExpenses, displayCurrency),
             pw.SizedBox(height: 20),
           ],
           
           // Expense List
-          if (expenses.isNotEmpty) ...[
+          if (expenseTable != null) ...[
             _buildPDFSectionTitle('Expense Details'),
             pw.SizedBox(height: 10),
-            _buildPDFExpenseTable(expenses, currencyFormat),
+            expenseTable,
           ],
           
           // Footer
@@ -130,21 +173,40 @@ class ExportService {
     CurrencyService? currencyService,
   }) async {
     final service = currencyService ?? CurrencyService();
-    final currencyFormat = _getCurrencyFormat(displayCurrency);
     final pdf = pw.Document();
     
-    // Calculate statistics
-    final totalExpenses = expenses.fold<double>(0, (sum, e) => sum + e.amount);
+    // Calculate statistics - convert all amounts to display currency
+    double totalExpenses = 0;
+    for (final expense in expenses) {
+      final converted = await service.convertCurrency(
+        amount: expense.amount,
+        from: expense.currency,
+        to: displayCurrency,
+      );
+      totalExpenses += converted;
+    }
     final averageExpense = expenses.isEmpty ? 0.0 : totalExpenses / expenses.length;
     
+    // Group by category - with conversion
     final categoryTotals = <String, double>{};
     final categoryCount = <String, int>{};
     for (final expense in expenses) {
+      final converted = await service.convertCurrency(
+        amount: expense.amount,
+        from: expense.currency,
+        to: displayCurrency,
+      );
       categoryTotals[expense.category] = 
-          (categoryTotals[expense.category] ?? 0) + expense.amount;
+          (categoryTotals[expense.category] ?? 0) + converted;
       categoryCount[expense.category] = 
           (categoryCount[expense.category] ?? 0) + 1;
     }
+
+    // Pre-build async widgets
+    final budgetTable = (budgets != null && budgets.isNotEmpty)
+        ? await _buildPDFBudgetTable(budgets, categoryTotals, displayCurrency)
+        : null;
+    final expenseTable = await _buildPDFExpenseTable(expenses, displayCurrency, service);
 
     pdf.addPage(
       pw.MultiPage(
@@ -154,27 +216,27 @@ class ExportService {
           _buildPDFHeader(title ?? 'Detailed Expense Report', startDate, endDate),
           pw.SizedBox(height: 20),
           
-          _buildPDFSummary(expenses.length, totalExpenses, averageExpense, currencyFormat),
+          _buildPDFSummary(expenses.length, totalExpenses, averageExpense, displayCurrency),
           pw.SizedBox(height: 20),
           
           // Budget vs Actual (if budgets provided)
-          if (budgets != null && budgets.isNotEmpty) ...[
+          if (budgetTable != null) ...[
             _buildPDFSectionTitle('Budget Status'),
             pw.SizedBox(height: 10),
-            _buildPDFBudgetTable(budgets, categoryTotals, currencyFormat),
+            budgetTable,
             pw.SizedBox(height: 20),
           ],
           
           // Category Analysis
           _buildPDFSectionTitle('Category Analysis'),
           pw.SizedBox(height: 10),
-          _buildPDFCategoryAnalysis(categoryTotals, categoryCount, totalExpenses, currencyFormat),
+          _buildPDFCategoryAnalysis(categoryTotals, categoryCount, totalExpenses, displayCurrency),
           pw.SizedBox(height: 20),
           
           // Expense List
           _buildPDFSectionTitle('All Expenses'),
           pw.SizedBox(height: 10),
-          _buildPDFExpenseTable(expenses, currencyFormat),
+          expenseTable,
           
           pw.Spacer(),
           _buildPDFFooter(),
@@ -206,16 +268,23 @@ class ExportService {
     final service = currencyService ?? CurrencyService();
     final rows = <List<String>>[
       // Header row
-      ['Date', 'Description', 'Category', 'Amount', 'Notes'],
+      ['Date', 'Description', 'Category', 'Amount ($displayCurrency)', 'Notes'],
       
-      // Data rows
-      ...expenses.map((expense) => [
-        _dateFormat.format(expense.date),
-        expense.description ?? '',
-        expense.category,
-        expense.amount.toStringAsFixed(2),
-        expense.description ?? '',
-      ]),
+      // Data rows - convert amounts
+      ...await Future.wait(expenses.map((expense) async {
+        final convertedAmount = await service.convertCurrency(
+          amount: expense.amount,
+          from: expense.currency,
+          to: displayCurrency,
+        );
+        return [
+          _dateFormat.format(expense.date),
+          expense.description ?? '',
+          expense.category,
+          convertedAmount.toStringAsFixed(2),
+          expense.description ?? '',
+        ];
+      })),
     ];
 
     final csv = const ListToCsvConverter().convert(rows);
@@ -249,22 +318,27 @@ class ExportService {
         'Created At',
       ],
       
-      // Data rows
-      ...expenses.map((expense) {
+      // Data rows - convert amounts
+      ...await Future.wait(expenses.map((expense) async {
         final dayOfWeek = DateFormat('EEEE').format(expense.date);
         final createdAt = _dateFormat.format(expense.createdAt);
+        final convertedAmount = await service.convertCurrency(
+          amount: expense.amount,
+          from: expense.currency,
+          to: displayCurrency,
+        );
         
         return [
           _dateFormat.format(expense.date),
           dayOfWeek,
           expense.description ?? '',
           expense.category,
-          expense.amount.toStringAsFixed(2),
+          convertedAmount.toStringAsFixed(2),
           expense.paymentMethod ?? 'N/A',
           expense.description ?? '',
           createdAt,
         ];
-      }),
+      })),
     ];
 
     final csv = const ListToCsvConverter().convert(rows);
@@ -364,7 +438,7 @@ class ExportService {
     );
   }
 
-  pw.Widget _buildPDFSummary(int count, double total, double average, NumberFormat currencyFormat) {
+  pw.Widget _buildPDFSummary(int count, double total, double average, String currency) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
       decoration: pw.BoxDecoration(
@@ -375,8 +449,8 @@ class ExportService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
         children: [
           _buildPDFSummaryStat('Total Expenses', count.toString()),
-          _buildPDFSummaryStat('Total Amount', currencyFormat.format(total)),
-          _buildPDFSummaryStat('Average', currencyFormat.format(average)),
+          _buildPDFSummaryStat('Total Amount', _formatCurrency(total, currency)),
+          _buildPDFSummaryStat('Average', _formatCurrency(average, currency)),
         ],
       ),
     );
@@ -408,7 +482,7 @@ class ExportService {
   pw.Widget _buildPDFCategoryTable(
     Map<String, double> categoryTotals,
     double totalExpenses,
-    NumberFormat currencyFormat,
+    String currency,
   ) {
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -431,7 +505,7 @@ class ExportService {
           return pw.TableRow(
             children: [
               _buildPDFTableCell(entry.key),
-              _buildPDFTableCell(currencyFormat.format(entry.value)),
+              _buildPDFTableCell(_formatCurrency(entry.value, currency)),
               _buildPDFTableCell('$percentage%'),
             ],
           );
@@ -440,7 +514,26 @@ class ExportService {
     );
   }
 
-  pw.Widget _buildPDFExpenseTable(List<Expense> expenses, NumberFormat currencyFormat) {
+  Future<pw.Widget> _buildPDFExpenseTable(List<Expense> expenses, String currency, CurrencyService service) async {
+    // Convert all expense amounts to display currency
+    final convertedRows = await Future.wait(
+      expenses.take(50).map((expense) async {
+        final convertedAmount = await service.convertCurrency(
+          amount: expense.amount,
+          from: expense.currency,
+          to: currency,
+        );
+        return pw.TableRow(
+          children: [
+            _buildPDFTableCell(_dateFormat.format(expense.date)),
+            _buildPDFTableCell(expense.description ?? 'No description'),
+            _buildPDFTableCell(expense.category),
+            _buildPDFTableCell(_formatCurrency(convertedAmount, currency)),
+          ],
+        );
+      }),
+    );
+    
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey400),
       columnWidths: {
@@ -460,24 +553,17 @@ class ExportService {
             _buildPDFTableCell('Amount', isHeader: true),
           ],
         ),
-        // Data rows (limit to prevent overflow)
-        ...expenses.take(50).map((expense) => pw.TableRow(
-          children: [
-            _buildPDFTableCell(_dateFormat.format(expense.date)),
-            _buildPDFTableCell(expense.description ?? 'No description'),
-            _buildPDFTableCell(expense.category),
-            _buildPDFTableCell(currencyFormat.format(expense.amount)),
-          ],
-        )),
+        // Data rows with converted amounts
+        ...convertedRows,
       ],
     );
   }
 
-  pw.Widget _buildPDFBudgetTable(
+  Future<pw.Widget> _buildPDFBudgetTable(
     List<Budget> budgets,
     Map<String, double> actualSpending,
-    NumberFormat currencyFormat,
-  ) {
+    String currency,
+  ) async {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey400),
       children: [
@@ -500,9 +586,9 @@ class ExportService {
           return pw.TableRow(
             children: [
               _buildPDFTableCell(budget.category),
-              _buildPDFTableCell(currencyFormat.format(budget.amount)),
-              _buildPDFTableCell(currencyFormat.format(spent)),
-              _buildPDFTableCell(currencyFormat.format(remaining)),
+              _buildPDFTableCell(_formatCurrency(budget.amount, currency)),
+              _buildPDFTableCell(_formatCurrency(spent, currency)),
+              _buildPDFTableCell(_formatCurrency(remaining, currency)),
               _buildPDFTableCell('$status ($percentage%)'),
             ],
           );
@@ -515,7 +601,7 @@ class ExportService {
     Map<String, double> categoryTotals,
     Map<String, int> categoryCount,
     double totalExpenses,
-    NumberFormat currencyFormat,
+    String currency,
   ) {
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -535,15 +621,15 @@ class ExportService {
         ),
         ...sortedCategories.map((entry) {
           final count = categoryCount[entry.key] ?? 0;
-          final average = count > 0 ? entry.value / count : 0;
+          final average = count > 0 ? (entry.value / count) : 0.0;
           final percentage = (entry.value / totalExpenses * 100).toStringAsFixed(1);
           
           return pw.TableRow(
             children: [
               _buildPDFTableCell(entry.key),
               _buildPDFTableCell(count.toString()),
-              _buildPDFTableCell(currencyFormat.format(entry.value)),
-              _buildPDFTableCell(currencyFormat.format(average)),
+              _buildPDFTableCell(_formatCurrency(entry.value, currency)),
+              _buildPDFTableCell(_formatCurrency(average, currency)),
               _buildPDFTableCell('$percentage%'),
             ],
           );

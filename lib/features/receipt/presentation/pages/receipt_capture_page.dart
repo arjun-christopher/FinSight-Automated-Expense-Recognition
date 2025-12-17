@@ -82,18 +82,19 @@ class _ReceiptCapturePageState extends ConsumerState<ReceiptCapturePage>
       // Create workflow service
       final workflow = OcrWorkflowFactory.createMockWorkflow();
 
-      // Process receipt with timeout (30 seconds)
+      // Process receipt with aggressive timeout (20 seconds max)
       final stopwatch = Stopwatch()..start();
       final result = await workflow.processReceipt(
         imagePath: imagePath,
         useClassifier: true,
         onStepComplete: (step) {
-          debugPrint('Completed step: ${step.name} at ${stopwatch.elapsedMilliseconds}ms');
+          debugPrint('✓ Completed: ${step.name} [${stopwatch.elapsedMilliseconds}ms]');
         },
       ).timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 20),
         onTimeout: () {
-          throw Exception('Processing timed out. The receipt may be too complex or unclear. Please try again with a clearer image.');
+          debugPrint('❌ Timeout after ${stopwatch.elapsedMilliseconds}ms');
+          throw Exception('Processing timed out after 20 seconds. Please try with a clearer, well-lit receipt image.');
         },
       );
 
